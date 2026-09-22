@@ -225,10 +225,10 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
           </div>
 
           <div className="flex items-center space-x-1 overflow-x-auto max-w-full pb-1">
-            <span className="text-slate-400 mr-1 shrink-0">Chọn nhanh:</span>
-            {[20, 21, 22, 23, 24, 25].map((w) => {
-              const locked = isWeekLocked(w, classInfo);
-              return (
+  <span className="text-slate-400 mr-1 shrink-0">Chọn nhanh:</span>
+  {Array.from({ length: 7 }, (_, i) => Math.max(1, Math.min(29, (currentPeriod.weekNumber || 1) - 3)) + i).map((w) => {
+    const locked = isWeekLocked(w, classInfo);
+    return (
                 <button
                   key={w}
                   type="button"
