@@ -1886,6 +1886,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     academicYear: newAcademicYear.trim() || formData.academicYear,
                     location: newLocation.trim() || formData.location,
                     adminPin: newAdminPin.trim() || '123456',
+                    weekNumber: 1,
                   });
                   setIsAddClassModalOpen(false);
                   setNewClassName('');
