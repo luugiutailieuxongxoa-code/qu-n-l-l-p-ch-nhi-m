@@ -52,9 +52,9 @@ export const getTodayLocalDateString = (d: Date = new Date()): string => {
 
 export const DEFAULT_EVALUATION_PERIOD: EvaluationPeriod = {
   type: 'week',
-  weekNumber: 24,
+  weekNumber: 3,
   month: 2,
-  academicYear: '2024 - 2025',
+  academicYear: '2026 - ',
 };
 
 export const DEFAULT_ADMIN_SESSION: CurrentUserSession = {
@@ -141,7 +141,7 @@ export const addNewClass = (newClassData: {
     academicYear: newClass.academicYear,
     semester: newClass.semester || '',
     location: newClass.location || 'Phước Sơn',
-    weekNumber: 24,
+    weekNumber: 3,
     weekStartDate: '2025-02-24',
     weekEndDate: '2025-02-28',
     teacherComment: `Lớp ${newClass.className} - Chúc các em một năm học đạt nhiều thành tích tốt!`,
