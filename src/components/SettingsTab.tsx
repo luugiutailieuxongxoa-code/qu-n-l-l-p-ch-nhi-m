@@ -882,7 +882,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </label>
               <select
                 disabled={!isAdmin}
-                value={formData.weekNumber || }
+                value={formData.weekNumber || 3}
                 onChange={(e) => setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })}
                 className="w-full text-xs font-bold text-[#1E3A8A] px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100 bg-white"
               >
