@@ -1,0 +1,6 @@
+{
+  "name": "SmartClass - Quản Lý Lớp Chủ Nhiệm",
+  "description": "Ứng dụng Quản Lý Lớp Chủ Nhiệm chuyên nghiệp, hỗ trợ điểm danh, thưởng phạt, xếp hạng thi đua và xuất báo cáo Excel/PDF",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+:root {
+  --theme-primary: #1E3A8A;
+  --theme-primary-dark: #172554;
+  --theme-primary-hover: #1D4ED8;
+  --theme-primary-light: #EFF6FF;
+  --theme-primary-border: #BFDBFE;
+  --theme-accent: #F59E0B;
+}
+
+/* Kích thước chữ (Font Scale) */
+html[data-font-scale="large"] {
+  font-size: 16.5px;
+}
+
+html[data-font-scale="normal"] {
+  font-size: 14.5px;
+}
+
+/* Kiểu Mật độ hiển thị (Display Density) */
+html[data-density="compact"] .compact-tight {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+html[data-density="compact"] td,
+html[data-density="compact"] th {
+  padding-top: 0.4rem !important;
+  padding-bottom: 0.4rem !important;
+}
+
+/* Kiểu Đổ bóng & Bo góc thẻ (Card Styles) */
+html[data-card-style="flat"] .theme-card {
+  box-shadow: none !important;
+  border-width: 1px !important;
+  border-color: #cbd5e1 !important;
+  border-radius: 0.5rem !important;
+}
+
+html[data-card-style="elevated"] .theme-card {
+  box-shadow: 0 10px 18px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05) !important;
+  border-radius: 1rem !important;
+}
+
+html[data-card-style="rounded"] .theme-card {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05) !important;
+  border-radius: 1rem !important;
+}
+
+/* Lớp tiện ích màu sắc linh hoạt */
+.bg-theme-main {
+  background-color: var(--theme-primary) !important;
+}
+
+.bg-theme-dark {
+  background-color: var(--theme-primary-dark) !important;
+}
+
+.bg-theme-hover:hover {
+  background-color: var(--theme-primary-hover) !important;
+}
+
+.bg-theme-soft {
+  background-color: var(--theme-primary-light) !important;
+}
+
+.text-theme-main {
+  color: var(--theme-primary) !important;
+}
+
+.border-theme-main {
+  border-color: var(--theme-primary) !important;
+}
+
+.border-theme-soft {
+  border-color: var(--theme-primary-border) !important;
+}
+
+/* Chế độ Dark Mode dịu mắt */
+html.dark body {
+  background-color: #0b1329 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .theme-card,
+html.dark .bg-white {
+  background-color: #162036 !important;
+  color: #f1f5f9 !important;
+  border-color: #273552 !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-100 {
+  background-color: #0f182c !important;
+  color: #cbd5e1 !important;
+  border-color: #273552 !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-slate-900,
+html.dark .text-slate-700 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f182c !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+
+html.dark tr:hover td {
+  background-color: #1e293b !important;
+}
