@@ -3,6 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/storage.ts": { "maxDuration": 10 }
+    "api/storage.ts": {
+      "maxDuration": 10
+    },
+    "api/auth.ts": {
+      "maxDuration": 10
+    }
   }
 }
