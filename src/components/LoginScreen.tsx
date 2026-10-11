@@ -23,6 +23,7 @@ import {
   MessageSquare,
   ClipboardCheck,
 } from 'lucide-react';
+import { loginWithPin } from '../utils/authClient';
 import {
   ClassInfo,
   ClassItem,
@@ -64,6 +65,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<'all' | number>('all');
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentPin, setStudentPin] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
 
   // State form thêm lớp mới
   const [newClassName, setNewClassName] = useState('');
@@ -91,61 +96,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     return true;
   });
 
-  const handleTeacherLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pinInput.trim() === adminPin.trim() || pinInput.trim() === '123456' || pinInput.trim() === '1234') {
-      const session: CurrentUserSession = {
-        role: 'admin',
-        displayName: `${classInfo.teacherName} (GVCN - Admin)`,
-        classId: activeClassId,
-        canEditPoints: true,
-        canTakeAttendance: true,
-        canInputLogs: true,
-        isReadOnly: false,
-        isLoggedIn: true,
-      };
-      setPinError(false);
-      onLoginSuccess(session, activeClassId);
-    } else {
-      setPinError(true);
-    }
+  const handleTeacherLogin = async (e: React.FormEvent) => {
+    e.preventDefault(); setPinError(false); setAuthMessage(''); setAuthBusy(true);
+    try {
+      const result = await loginWithPin({ role: 'admin', classId: activeClassId, pin: pinInput.trim(), displayName: `${classInfo.teacherName} (GVCN - Admin)` });
+      onLoginSuccess({ ...result.session, role: 'admin', classId: activeClassId, displayName: `${classInfo.teacherName} (GVCN - Admin)`, canEditPoints: true, canTakeAttendance: true, canInputLogs: true, isReadOnly: false, isLoggedIn: true }, activeClassId);
+    } catch (error) { setPinError(true); setAuthMessage(error instanceof Error ? error.message : 'Đăng nhập thất bại.'); }
+    finally { setAuthBusy(false); }
   };
 
   const handleStudentLogin = (student: Student) => {
-    const officerInfo = getOfficerInfo(student.id);
+    setSelectedStudent(student); setStudentPin(''); setAuthMessage('');
+  };
 
-    if (officerInfo) {
-      // Học sinh được phân quyền: Ban cán sự, Cờ đỏ, Tổ trưởng
-      const session: CurrentUserSession = {
-        role: 'officer',
-        studentId: student.id,
-        officerRoleType: officerInfo.roleType,
-        displayName: `${student.name} (${officerInfo.title})`,
+  const handleStudentPinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!selectedStudent) return;
+    setAuthBusy(true); setAuthMessage('');
+    try {
+      const result = await loginWithPin({ role: 'student', classId: activeClassId, studentId: selectedStudent.id, pin: studentPin.trim(), displayName: selectedStudent.name });
+      const session = result.session;
+      onLoginSuccess({
+        ...session,
+        role: session.role === 'officer' ? 'officer' : 'student',
+        studentId: selectedStudent.id,
         classId: activeClassId,
-        assignedCategories: officerInfo.assignedCategories,
-        assignedTeams: officerInfo.assignedTeams,
-        canEditPoints: officerInfo.canEditPoints,
-        canTakeAttendance: officerInfo.canTakeAttendance,
-        canInputLogs: true, // Được phép nhập nội dung (lỗi vi phạm, điểm cộng)
-        isReadOnly: false,
-        isLoggedIn: true,
-      };
-      onLoginSuccess(session, activeClassId);
-    } else {
-      // Thành viên bình thường: Chỉ xem nội dung & có phần phản hồi
-      const session: CurrentUserSession = {
-        role: 'student',
-        studentId: student.id,
-        displayName: `${student.name} (Học sinh - Tổ ${student.team})`,
-        classId: activeClassId,
-        canEditPoints: false,
-        canTakeAttendance: false,
-        canInputLogs: false,
-        isReadOnly: true,
-        isLoggedIn: true,
-      };
-      onLoginSuccess(session, activeClassId);
-    }
+        displayName: session.displayName || selectedStudent.name,
+        canEditPoints: Boolean(session.canEditPoints),
+        canTakeAttendance: Boolean(session.canTakeAttendance),
+        canInputLogs: Boolean(session.canInputLogs),
+        isReadOnly: session.role !== 'officer', isLoggedIn: true,
+      }, activeClassId);
+      setSelectedStudent(null);
+    } catch (error) { setAuthMessage(error instanceof Error ? error.message : 'Đăng nhập thất bại.'); }
+    finally { setAuthBusy(false); }
   };
 
   const handleCreateClassSubmit = (e: React.FormEvent) => {
@@ -339,7 +322,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                           setPinInput(e.target.value);
                           setPinError(false);
                         }}
-                        placeholder="Nhập mã PIN (mặc định: 123456)"
+                        placeholder="Nhập PIN do GVCN cấu hình"
                         className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                         autoFocus
                       />
@@ -354,11 +337,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     {pinError ? (
                       <p className="text-xs text-rose-400 mt-1.5 flex items-center space-x-1">
                         <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Mã PIN không chính xác. Mã mặc định là 123456.</span>
+                        <span>Mã PIN không chính xác hoặc máy chủ chưa được cấu hình.</span>
                       </p>
                     ) : (
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Mã PIN mặc định: <code className="text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded">123456</code> (Thầy/Cô có thể đổi trong Cài đặt).
+                        PIN do GVCN cấu hình trong biến môi trường Vercel.
                       </p>
                     )}
                   </div>
@@ -514,6 +497,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         </section>
       </main>
+
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Đăng nhập học sinh">
+          <form onSubmit={handleStudentPinSubmit} className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div><h3 className="text-lg font-bold text-white">Xác thực học sinh</h3><p className="mt-1 text-sm text-slate-300">{selectedStudent.name} · Tổ {selectedStudent.team}</p></div>
+              <button type="button" onClick={() => setSelectedStudent(null)} className="rounded-lg p-2 text-slate-300 hover:bg-slate-800" aria-label="Đóng">✕</button>
+            </div>
+            <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="student-pin">Mã PIN cá nhân</label>
+            <input id="student-pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" minLength={4} maxLength={8} required value={studentPin} onChange={e => setStudentPin(e.target.value)} className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-lg tracking-[0.3em] text-white outline-none focus:border-blue-500" placeholder="••••••" />
+            {authMessage && <p className="mt-3 text-sm text-rose-300">{authMessage}</p>}
+            <button type="submit" disabled={authBusy} className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-500 disabled:opacity-60">{authBusy ? 'Đang xác thực…' : 'Đăng nhập'}</button>
+            <p className="mt-3 text-xs text-slate-400">Nếu chưa có PIN, liên hệ giáo viên chủ nhiệm.</p>
+          </form>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-800 py-3 px-4 text-center text-xs text-slate-400">
