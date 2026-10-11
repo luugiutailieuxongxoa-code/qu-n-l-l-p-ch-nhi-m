@@ -60,15 +60,40 @@ import { LoginScreen } from './components/LoginScreen';
 import { PeriodLockModal } from './components/PeriodLockModal';
 import { ParentMeetingModal } from './components/ParentMeetingModal';
 import { ParentMeetingPrintView } from './components/ParentMeetingPrintView';
+import { PinManagementPanel } from './components/PinManagementPanel';
+import { initializeTursoSync } from './utils/tursoSync';
+import { logoutServer } from './utils/authClient';
 
 export default function App() {
   const [classes, setClasses] = useState<ClassItem[]>(getStoredClasses);
   const [activeClassId, setActiveClassIdState] = useState<string>(getActiveClassId);
-  const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(() => {
-    // Nếu session hiện tại đã đăng nhập thì tự động cho phép vào giao diện
-    const session = getStoredSession();
-    return getIsAuthenticated() || !!session.isLoggedIn;
-  });
+  // Không tin trạng thái đăng nhập lưu trong localStorage; xác minh cookie HttpOnly với máy chủ.
+  const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async response => response.ok ? response.json() : null)
+      .then(result => {
+        if (cancelled || !result?.ok || !result.session) return;
+        const serverSession = result.session as CurrentUserSession;
+        if (serverSession.classId) {
+          setActiveClassId(serverSession.classId);
+          setActiveClassIdState(serverSession.classId);
+          setStudents(getStoredStudents(serverSession.classId));
+          setRules(getStoredRules(serverSession.classId));
+          setAttendance(getStoredAttendance(serverSession.classId));
+          setLogs(getStoredLogs(serverSession.classId));
+          setClassInfo(getStoredClassInfo(serverSession.classId));
+          setFeedbacks(getStoredFeedbacks(serverSession.classId));
+        }
+        setCurrentSession({ ...serverSession, isLoggedIn: true });
+        saveStoredSession({ ...serverSession, isLoggedIn: true });
+        persistIsAuthenticated(true);
+        setIsAuthenticatedState(true);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const [currentTab, setCurrentTab] = useState<TabType>('attendance');
   const [students, setStudents] = useState<Student[]>(() => getStoredStudents(activeClassId));
@@ -95,6 +120,24 @@ export default function App() {
   useEffect(() => {
     applyThemeToDocument(themeConfig);
   }, [themeConfig]);
+
+  useEffect(() => {
+    if (isAuthenticated) { void initializeTursoSync(); }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const refreshFromCloud = () => {
+      setClasses(getStoredClasses());
+      setStudents(getStoredStudents(activeClassId));
+      setRules(getStoredRules(activeClassId));
+      setAttendance(getStoredAttendance(activeClassId));
+      setLogs(getStoredLogs(activeClassId));
+      setClassInfo(getStoredClassInfo(activeClassId));
+      setFeedbacks(getStoredFeedbacks(activeClassId));
+    };
+    window.addEventListener('smartclass-cloud-ready', refreshFromCloud);
+    return () => window.removeEventListener('smartclass-cloud-ready', refreshFromCloud);
+  }, [activeClassId]);
 
   const handleUpdateThemeConfig = (newConfig: AppThemeConfig) => {
     setThemeConfig(newConfig);
@@ -226,6 +269,7 @@ export default function App() {
 
   // Đăng xuất và quay lại màn hình LoginScreen
   const handleLogout = () => {
+    void logoutServer().catch(() => undefined);
     persistIsAuthenticated(false);
     setIsAuthenticatedState(false);
     const updatedSession = { ...currentSession, isLoggedIn: false };
@@ -562,6 +606,8 @@ export default function App() {
         )}
 
         {currentTab === 'settings' && (
+          <>
+          <PinManagementPanel classId={activeClassId} classInfo={classInfo} students={students} currentSession={currentSession} />
           <SettingsTab
             classInfo={classInfo}
             onUpdateClassInfo={handleUpdateClassInfo}
@@ -581,6 +627,7 @@ export default function App() {
             onDeleteClass={handleDeleteClass}
             onOpenParentMeetingInvitation={() => setIsParentMeetingModalOpen(true)}
           />
+          </>
         )}
       </main>
 
