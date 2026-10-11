@@ -25,7 +25,8 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^6.2.3",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@libsql/client": "^0.15.15"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -36,6 +37,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "@vercel/node": "^5.3.0"
   }
 }
