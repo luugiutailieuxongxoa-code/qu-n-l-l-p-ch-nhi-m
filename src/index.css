@@ -119,3 +119,181 @@ html.dark textarea {
 html.dark tr:hover td {
   background-color: #1e293b !important;
 }
+
+/* =========================================================
+   RESPONSIVE LAYOUT: điện thoại, máy tính bảng và máy tính
+   Giữ nguyên nghiệp vụ; chỉ điều chỉnh cách hiển thị.
+   ========================================================= */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Bảng dữ liệu có thể cuộn ngang trên màn hình hẹp thay vì phá bố cục. */
+@media (max-width: 767px) {
+  main {
+    min-width: 0;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+
+  main table {
+    min-width: 620px;
+  }
+
+  main table th,
+  main table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  main :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  main :where(.grid) {
+    min-width: 0;
+  }
+
+  main :where(.flex) {
+    min-width: 0;
+  }
+
+  main :where(h1) {
+    font-size: 1.35rem;
+    line-height: 1.35;
+  }
+
+  main :where(h2) {
+    font-size: 1.15rem;
+    line-height: 1.4;
+  }
+
+  main :where(button, [role="button"]) {
+    min-height: 2.5rem;
+  }
+
+  header > div {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  header > div > div:first-child {
+    min-height: 4rem;
+    height: auto !important;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  header .max-w-7xl > div:first-child > div:first-child {
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  header .max-w-7xl > div:first-child > div:first-child > div:first-child {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+  }
+
+  header .max-w-7xl > div:first-child > div:first-child .text-lg {
+    font-size: 1rem;
+  }
+
+  header .max-w-7xl > div:first-child > div:last-child {
+    gap: 0.25rem;
+    flex: 0 0 auto;
+  }
+
+  header .max-w-7xl > div:first-child > div:last-child > button {
+    min-height: 2.35rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  /* Tránh phần tên người dùng hoặc các nút trên cùng ép tràn màn hình. */
+  header .max-w-7xl > div:first-child > div:last-child button span.max-w-\[130px\] {
+    max-width: 5.5rem;
+  }
+
+  footer {
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+  }
+}
+
+/* Máy tính bảng: tận dụng chiều rộng và giữ điều hướng dễ thao tác. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  header nav button {
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+  }
+
+  header nav button span {
+    font-size: 0.7rem;
+  }
+
+  main table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* Cuộn ngang có chủ đích cho bảng lớn, không cuộn toàn bộ trang. */
+main .overflow-x-auto,
+main .overflow-auto {
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
