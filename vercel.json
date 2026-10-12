@@ -1,12 +1,11 @@
+
 {
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/storage.ts": {
-      "maxDuration": 10
-    },
-    "api/auth.ts": {
+    "api/*.ts": {
+      "includeFiles": "lib/**",
       "maxDuration": 10
     }
   }
