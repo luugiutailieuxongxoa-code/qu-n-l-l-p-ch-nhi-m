@@ -1,6 +1,6 @@
 /** Sync SmartClass local data with the authenticated, role-filtered Turso API. */
 const PREFIX = 'smartclass_';
-const LOCAL_ONLY = new Set(['smartclass_is_authenticated_v1', 'smartclass_current_session_v1']);
+const LOCAL_ONLY = new Set(['smartclass_is_authenticated_v1', 'smartclass_current_session_v1', 'smartclass_active_class_id_v1']);
 const marker = '__smartclass_turso_bridge_installed__';
 type RemoteItem = { key: string; value: string };
 
@@ -15,7 +15,7 @@ export async function initializeTursoSync(): Promise<void> {
   let queue = Promise.resolve();
   const syncKey = (key: string, value: string) => {
     if (!ready || !key.startsWith(PREFIX) || LOCAL_ONLY.has(key)) return;
-    queue = queue.then(() => fetch('/api/storage', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) }))
+    queue = queue.then(() => fetch('/api/storage', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value, classId: window.localStorage.getItem('smartclass_active_class_id_v1') || undefined }) }))
       .then(async response => { if (!response.ok) throw new Error(`Turso sync denied (${response.status})`); })
       .catch(error => console.warn('Không đồng bộ được dữ liệu lên Turso.', error));
   };
@@ -26,7 +26,7 @@ export async function initializeTursoSync(): Promise<void> {
   Storage.prototype.removeItem = function(key: string) { originalRemoveItem.call(this, key); };
 
   const pull = async (initial = false) => {
-    const response = await fetch('/api/storage', { cache: 'no-store', credentials: 'same-origin' });
+    const response = await fetch(`/api/storage?classId=${encodeURIComponent(window.localStorage.getItem('smartclass_active_class_id_v1') || '')}`, { cache: 'no-store', credentials: 'same-origin' });
     if (response.status === 401) { ready = false; return; }
     if (!response.ok) throw new Error(`Turso unavailable (${response.status})`);
     const data = await response.json() as { items?: RemoteItem[] };
