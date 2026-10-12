@@ -125,7 +125,7 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({
   const [teacherReplyText, setTeacherReplyText] = useState('');
   const [deleteRelatedLogChecked, setDeleteRelatedLogChecked] = useState(true);
 
-  const isAdmin = currentSession.role === 'admin';
+  const isAdmin = (currentSession.role === 'admin' || currentSession.role === 'teacher');
   const isStudent = currentSession.role === 'student' || currentSession.role === 'officer';
 
   // Lọc phản hồi
