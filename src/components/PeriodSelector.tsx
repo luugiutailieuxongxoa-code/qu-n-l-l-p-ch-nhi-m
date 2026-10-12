@@ -46,7 +46,7 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
     { value: 5, label: 'Tháng 5 (Tổng kết HK2)' },
   ];
 
-  const isAdmin = currentSession.role === 'admin';
+  const isAdmin = (currentSession.role === 'admin' || currentSession.role === 'teacher');
   const isCurrentLocked = isPeriodLocked(currentPeriod, classInfo);
 
   const handleTypeChange = (type: EvaluationPeriodType) => {
