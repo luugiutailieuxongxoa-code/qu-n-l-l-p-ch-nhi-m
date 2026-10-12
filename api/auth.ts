@@ -20,7 +20,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (action === 'login') {
       const pin = String(body.pin || ''); const classId = String(body.classId || '');
-      if (!/^\d{4,8}$/.test(pin) || !classId) return res.status(400).json({ error: 'Mã PIN phải có từ 4 đến 8 chữ số.' });
+      
+if (
+  pin.length < 8 ||
+  pin.length > 64 ||
+  !/[a-zA-Z]/.test(pin) ||
+  !/[0-9]/.test(pin) ||
+  !/[^a-zA-Z0-9]/.test(pin) ||
+  !classId
+) {
+  return res.status(400).json({
+    error: 'Mật khẩu phải dài 8–64 ký tự, gồm chữ cái, số và ký tự đặc biệt.'
+  });
+}
+
       let role: 'admin' | 'officer' | 'student'; let studentId: string | undefined; let displayName: string; let permissions: Record<string, unknown> = {};
       if (body.role === 'admin') {
         const bootstrap = process.env.SMARTCLASS_ADMIN_PIN;
