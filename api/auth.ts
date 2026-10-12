@@ -1,6 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomBytes } from 'node:crypto';
-import { db, ensureAuthTables, getSession, hashPin, verifyPin, tokenHash, setSessionCookie, clearSessionCookie } from '../lib/auth';
+import { db, ensureAuthTables, getSession, hashPin, verifyPin, tokenHash, setSessionCookie, clearSessionCookie } from '../lib/auth.js';
+
+function isStrongPassword(value: string): boolean {
+  return value.length >= 8 && value.length <= 64
+    && /[A-Za-z]/.test(value)
+    && /[0-9]/.test(value)
+    && /[^A-Za-z0-9\s]/.test(value);
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -20,31 +27,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (action === 'login') {
       const pin = String(body.pin || ''); const classId = String(body.classId || '');
-      
-if (
-  pin.length < 8 ||
-  pin.length > 64 ||
-  !/[a-zA-Z]/.test(pin) ||
-  !/[0-9]/.test(pin) ||
-  !/[^a-zA-Z0-9]/.test(pin) ||
-  !classId
-) {
-  return res.status(400).json({
-    error: 'Mật khẩu phải dài 8–64 ký tự, gồm chữ cái, số và ký tự đặc biệt.'
-  });
-}
-
+      if (!isStrongPassword(pin) || !classId) return res.status(400).json({ error: 'Mật khẩu phải dài 8–64 ký tự, gồm chữ cái, số và ký tự đặc biệt.' });
       let role: 'admin' | 'officer' | 'student'; let studentId: string | undefined; let displayName: string; let permissions: Record<string, unknown> = {};
       if (body.role === 'admin') {
         const bootstrap = process.env.SMARTCLASS_ADMIN_PIN;
         if (!bootstrap) return res.status(503).json({ error: 'Chưa cấu hình SMARTCLASS_ADMIN_PIN trên Vercel.' });
-        if (pin !== bootstrap) return res.status(401).json({ error: 'Mã PIN giáo viên không đúng.' });
+        if (pin !== bootstrap) return res.status(401).json({ error: 'Mật khẩu giáo viên không đúng.' });
         role = 'admin'; displayName = String(body.displayName || 'Giáo viên chủ nhiệm'); permissions = { managePins: true, canInputLogs: true, canEditPoints: true, canTakeAttendance: true };
       } else {
         studentId = String(body.studentId || '');
         const found = await client.execute({ sql: 'SELECT pin_hash, role, display_name, permissions FROM smartclass_credentials WHERE class_id = ? AND student_id = ? AND active = 1', args: [classId, studentId] });
         const row = found.rows[0];
-        if (!row || !verifyPin(pin, String(row.pin_hash))) return res.status(401).json({ error: 'Mã PIN học sinh không đúng hoặc chưa được GVCN cấp.' });
+        if (!row || !verifyPin(pin, String(row.pin_hash))) return res.status(401).json({ error: 'Mật khẩu học sinh không đúng hoặc chưa được GVCN cấp.' });
         role = String(row.role) as 'officer' | 'student'; displayName = String(row.display_name); permissions = JSON.parse(String(row.permissions || '{}'));
       }
       const token = randomBytes(32).toString('base64url'); const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
@@ -54,11 +48,11 @@ if (
     }
     if (action === 'set-pin') {
       const session = await getSession(req);
-      if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ GVCN đã xác thực mới được cấp PIN.' });
+      if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ GVCN đã xác thực mới được cấp mật khẩu.' });
       const classId = String(body.classId || ''); const studentId = String(body.studentId || ''); const pin = String(body.pin || '');
       const role = body.role === 'officer' ? 'officer' : 'student';
-      if (classId !== session.classId) return res.status(403).json({ error: 'Không thể quản lý PIN lớp khác.' });
-      if (!studentId || !/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'Chọn học sinh và nhập PIN 4–8 chữ số.' });
+      if (classId !== session.classId) return res.status(403).json({ error: 'Không thể quản lý mật khẩu lớp khác.' });
+      if (!studentId || !isStrongPassword(pin)) return res.status(400).json({ error: 'Chọn học sinh và nhập mật khẩu 8–64 ký tự, gồm chữ cái, số và ký tự đặc biệt.' });
       const permissions = role === 'officer' ? {
         canInputLogs: Boolean(body.permissions?.canInputLogs), canTakeAttendance: Boolean(body.permissions?.canTakeAttendance),
         canEditPoints: Boolean(body.permissions?.canEditPoints), assignedCategories: Array.isArray(body.permissions?.assignedCategories) ? body.permissions.assignedCategories : [],
@@ -66,7 +60,7 @@ if (
       } : { canInputLogs: false, canTakeAttendance: false, canEditPoints: false };
       const displayName = String(body.displayName || studentId).slice(0, 120);
       await client.execute({ sql: `INSERT INTO smartclass_credentials(class_id,student_id,pin_hash,role,display_name,permissions,active,updated_at) VALUES(?,?,?,?,?,?,1,datetime('now')) ON CONFLICT(class_id,student_id) DO UPDATE SET pin_hash=excluded.pin_hash,role=excluded.role,display_name=excluded.display_name,permissions=excluded.permissions,active=1,updated_at=datetime('now')`, args: [classId, studentId, hashPin(pin), role, displayName, JSON.stringify(permissions)] });
-      return res.status(200).json({ ok: true, message: 'Đã lưu PIN và quyền cho học sinh.' });
+      return res.status(200).json({ ok: true, message: 'Đã lưu mật khẩu và quyền cho học sinh.' });
     }
     if (action === 'revoke-pin') {
       const session = await getSession(req);
