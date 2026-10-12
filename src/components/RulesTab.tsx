@@ -55,7 +55,7 @@ export const RulesTab: React.FC<RulesTabProps> = ({
   onNavigateFeedback,
   onToggleLockPeriod,
 }) => {
-  const isAdmin = currentSession.role === 'admin';
+  const isAdmin = (currentSession.role === 'admin' || currentSession.role === 'teacher');
   const isStudent = currentSession.role === 'student';
   const isLocked = isWeekLocked(classInfo.weekNumber, classInfo);
   const allowedCategories = currentSession.assignedCategories || ['hoc_tap', 'tac_phong', 'ky_luat'];
