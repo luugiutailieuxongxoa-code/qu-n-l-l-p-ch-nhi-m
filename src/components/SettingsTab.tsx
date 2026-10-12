@@ -111,6 +111,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onOpenParentMeetingInvitation,
 }) => {
   const isAdmin = currentSession.role === 'admin';
+  const isClassManager = isAdmin || currentSession.role === 'teacher';
   const isStudent = currentSession.role === 'student' || !!currentSession.isReadOnly;
 
   // Form cài đặt thông tin trường lớp
@@ -499,7 +500,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 }`}
               >
                 {isAdmin
-                  ? 'Quản Trị Viên (Admin)'
+                  ? 'Quản Trị Viên Hệ Thống'
+                  : currentSession.role === 'teacher'
+                  ? 'Giáo viên chủ nhiệm (GVCN)'
                   : isStudent
                   ? 'Học sinh (Chế độ xem)'
                   : 'Ban Cán Sự (Chỉ Xem Cài Đặt)'}
@@ -507,7 +510,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {isAdmin
-                ? 'GVCN có toàn quyền sửa thông tin trường lớp, đổi mã PIN admin và phân công nhiệm vụ cho ban cán sự.'
+                ? 'Admin quản lý tài khoản GVCN và phân công lớp.'
+                : currentSession.role === 'teacher' ? 'Bạn được quản lý dữ liệu của lớp được phân công.'
                 : isStudent
                 ? 'Bạn đang đăng nhập tài khoản học sinh. Cài đặt hệ thống và phân công chỉ do GVCN chỉnh sửa.'
                 : 'Bạn đang đăng nhập vai trò Ban Cán Sự Lớp. Để thay đổi cấu hình hoặc phân công, hãy chuyển sang quyền GVCN.'}
@@ -528,13 +532,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </button>
           )}
 
-          <button
+          {isAdmin && <button
             onClick={onOpenRoleSwitcher}
             className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-blue-50 text-[#1E3A8A] rounded-xl text-xs font-bold border border-slate-200 hover:border-blue-300 transition-colors shrink-0 cursor-pointer"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
-            <span>{isAdmin ? 'Đổi Vai Trò' : 'Đăng Nhập GVCN (Admin)'}</span>
-          </button>
+            <span>Đổi Vai Trò</span>
+          </button>}
         </div>
       </div>
 
@@ -587,7 +591,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </p>
           </div>
 
-          {isAdmin && (
+          {isClassManager && (
             <button
               onClick={handleResetOfficers}
               className="inline-flex items-center space-x-1 text-xs font-semibold text-[#1E3A8A] hover:underline cursor-pointer"
@@ -609,7 +613,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <span className="font-bold text-xs text-[#1E3A8A]">
                     {officer.title}
                   </span>
-                  {isAdmin && (
+                  {isClassManager && (
                     <button
                       onClick={() => handleOpenEditOfficer(officer)}
                       className="p-1 text-slate-400 hover:text-[#1E3A8A] rounded hover:bg-white transition-colors cursor-pointer"
@@ -651,7 +655,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
 
-              {isAdmin && (
+              {isClassManager && (
                 <div className="pt-2 mt-2 border-t border-slate-200/60 flex justify-end">
                   <button
                     onClick={() => handleOpenEditOfficer(officer)}
@@ -702,7 +706,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {classes.map((c) => {
+          {classes.filter(c => isAdmin || c.id === (activeClassId || classInfo.classId)).map((c) => {
             const isCurrent = c.id === (activeClassId || classInfo.classId);
             return (
               <div
@@ -800,7 +804,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <input
                 type="text"
                 required
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.schoolName}
                 onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
                 className="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100"
@@ -814,7 +818,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <input
                 type="text"
                 required
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.className}
                 onChange={(e) => setFormData({ ...formData, className: e.target.value })}
                 className="w-full text-xs font-bold text-[#1E3A8A] px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100"
@@ -828,7 +832,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <input
                 type="text"
                 required
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.location || ''}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 placeholder="Ví dụ: Phước Sơn, Đồng Nai, TP. Hồ Chí Minh..."
@@ -843,7 +847,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <input
                 type="text"
                 required
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.teacherName}
                 onChange={(e) => setFormData({ ...formData, teacherName: e.target.value })}
                 className="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100"
@@ -856,7 +860,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </label>
               <input
                 type="text"
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.teacherPhone}
                 onChange={(e) => setFormData({ ...formData, teacherPhone: e.target.value })}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100"
@@ -870,7 +874,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <input
                 type="text"
                 required
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.academicYear}
                 onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100"
@@ -881,7 +885,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 Tuần học hiện tại của năm (⭐ Bắt đầu) *
               </label>
               <select
-                disabled={!isAdmin}
+                disabled={!isClassManager}
                 value={formData.weekNumber || 3}
                 onChange={(e) => setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })}
                 className="w-full text-xs font-bold text-[#1E3A8A] px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] disabled:bg-slate-100 bg-white"
@@ -948,7 +952,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </p>
           </div>
 
-          {isAdmin && (
+          {isClassManager && (
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setIsTeamDivisionOpen(true)}
@@ -1031,7 +1035,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                {isAdmin && (
+                {isClassManager && (
                   <th className="py-2.5 px-2 text-center w-8">
                     <input
                       type="checkbox"
@@ -1048,7 +1052,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <th className="py-2.5 px-2 text-center">Tổ (Đổi Nhanh)</th>
                 <th className="py-2.5 px-3">SĐT Phụ Huynh</th>
                 <th className="py-2.5 px-3">Ghi Chú / Chức Vụ</th>
-                {isAdmin && <th className="py-2.5 px-2 text-right">Thao Tác</th>}
+                {isClassManager && <th className="py-2.5 px-2 text-right">Thao Tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1062,7 +1066,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       isSelected ? 'bg-blue-50/50' : ''
                     }`}
                   >
-                    {isAdmin && (
+                    {isClassManager && (
                       <td className="py-2.5 px-2 text-center">
                         <input
                           type="checkbox"
@@ -1108,7 +1112,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-slate-600">{s.parentPhone || '—'}</td>
                     <td className="py-2.5 px-3 text-slate-600">{s.notes || '—'}</td>
-                    {isAdmin && (
+                    {isClassManager && (
                       <td className="py-2.5 px-2 text-right">
                         <div className="flex items-center justify-end space-x-1">
                           <button
