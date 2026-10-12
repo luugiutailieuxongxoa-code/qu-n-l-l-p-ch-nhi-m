@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, ensureAuthTables, getSession, type ServerSession } from '../lib/auth';
+import { db, ensureAuthTables, getSession, type ServerSession } from '../lib/auth.js';
 
 function sameClassKey(key: string, classId: string) {
   return key.endsWith(`_${classId}`) || key === `smartclass_class_info_v1_${classId}`;
