@@ -61,6 +61,7 @@ import { PeriodLockModal } from './components/PeriodLockModal';
 import { ParentMeetingModal } from './components/ParentMeetingModal';
 import { ParentMeetingPrintView } from './components/ParentMeetingPrintView';
 import { PinManagementPanel } from './components/PinManagementPanel';
+import { AccountSecurityPanel } from './components/AccountSecurityPanel';
 import { initializeTursoSync } from './utils/tursoSync';
 import { logoutServer } from './utils/authClient';
 
@@ -157,6 +158,7 @@ export default function App() {
 
   // Chuyển đổi lớp học đang hoạt động (Multi-tenancy isolation)
   const handleSelectClass = (newClassId: string) => {
+    if (currentSession.role === 'teacher' && newClassId !== currentSession.classId) return;
     setActiveClassId(newClassId);
     setActiveClassIdState(newClassId);
 
@@ -189,6 +191,10 @@ export default function App() {
         displayName: `${newClassInfo.teacherName} (GVCN - Admin)`,
         classId: newClassId,
       };
+      setCurrentSession(updatedSession);
+      saveStoredSession(updatedSession);
+    } else if (currentSession.role === 'teacher') {
+      const updatedSession = { ...currentSession, classId: currentSession.classId };
       setCurrentSession(updatedSession);
       saveStoredSession(updatedSession);
     } else {
@@ -260,11 +266,19 @@ export default function App() {
 
   // Đăng nhập thành công từ LoginScreen
   const handleLoginSuccess = (session: CurrentUserSession, classId: string) => {
+    const assignedClassId = session.role === 'teacher' ? String(session.classId || classId) : classId;
     persistIsAuthenticated(true);
     setIsAuthenticatedState(true);
-    setCurrentSession(session);
-    saveStoredSession(session);
-    handleSelectClass(classId);
+    setCurrentSession({ ...session, classId: assignedClassId, isLoggedIn: true });
+    saveStoredSession({ ...session, classId: assignedClassId, isLoggedIn: true });
+    setActiveClassId(assignedClassId);
+    setActiveClassIdState(assignedClassId);
+    setStudents(getStoredStudents(assignedClassId));
+    setRules(getStoredRules(assignedClassId));
+    setAttendance(getStoredAttendance(assignedClassId));
+    setLogs(getStoredLogs(assignedClassId));
+    setClassInfo(getStoredClassInfo(assignedClassId));
+    setFeedbacks(getStoredFeedbacks(assignedClassId));
   };
 
   // Đăng xuất và quay lại màn hình LoginScreen
@@ -324,10 +338,10 @@ export default function App() {
     setClasses(getStoredClasses());
 
     // Đồng bộ ngay lập tức tên vai trò hiển thị của GVCN nếu đang là phiên admin
-    if (currentSession.role === 'admin') {
+    if (currentSession.role === 'admin' || currentSession.role === 'teacher') {
       const updatedSession: CurrentUserSession = {
         ...currentSession,
-        displayName: `${newInfo.teacherName} (GVCN - Admin)`,
+        displayName: currentSession.role === 'admin' ? `${newInfo.teacherName} (Admin)` : newInfo.teacherName,
       };
       setCurrentSession(updatedSession);
       saveStoredSession(updatedSession);
@@ -607,6 +621,7 @@ export default function App() {
 
         {currentTab === 'settings' && (
           <>
+          <AccountSecurityPanel session={currentSession} classes={classes} />
           <PinManagementPanel classId={activeClassId} classInfo={classInfo} students={students} currentSession={currentSession} />
           <SettingsTab
             classInfo={classInfo}
