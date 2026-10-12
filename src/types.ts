@@ -110,7 +110,7 @@ export interface ClassItem {
   createdAt?: string;
 }
 
-export type UserRole = 'admin' | 'officer' | 'student';
+export type UserRole = 'admin' | 'teacher' | 'officer' | 'student';
 
 export interface CurrentUserSession {
   role: UserRole;
