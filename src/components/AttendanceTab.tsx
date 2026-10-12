@@ -50,7 +50,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
   onNavigateFeedback,
   onToggleLockPeriod,
 }) => {
-  const isAdmin = currentSession.role === 'admin';
+  const isAdmin = (currentSession.role === 'admin' || currentSession.role === 'teacher');
   const isStudent = currentSession.role === 'student' || !!currentSession.isReadOnly;
   const isLocked = isWeekLocked(classInfo.weekNumber, classInfo);
   const canEdit = !isStudent && (!isLocked || isAdmin);
