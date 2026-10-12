@@ -29,14 +29,14 @@ export const PinManagementPanel: React.FC<{
     x => x.studentId === studentId
   );
 
-  if (currentSession.role !== 'admin') return null;
+  if (currentSession.role !== 'admin' && currentSession.role !== 'teacher') return null;
 
   const validPassword =
     pin.length >= 8 &&
     pin.length <= 64 &&
-    /[a-zA-ZÀ-ỹ]/.test(pin) &&
+    /[A-Za-z]/.test(pin) &&
     /[0-9]/.test(pin) &&
-    /[^a-zA-Z0-9À-ỹ]/.test(pin);
+    /[^A-Za-z0-9\s]/.test(pin);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
