@@ -1,67 +1,67 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, ensureAuthTables, getSession, type ServerSession } from '../lib/auth.js';
-
-function sameClassKey(key: string, classId: string) {
-  return key.endsWith(`_${classId}`) || key === `smartclass_class_info_v1_${classId}`;
-}
-function canRead(session: ServerSession, key: string) {
-  if (session.role === 'admin') return true;
-  if (key === 'smartclass_classes_list_v1') return true;
-  if (key === 'smartclass_active_class_id_v1' || key === 'smartclass_theme_v1') return true;
-  if (!sameClassKey(key, session.classId)) return false;
-  return /smartclass_(students|rules|attendance|logs|class_info|feedbacks|parent_meeting_invitation)_v1_/.test(key);
-}
-function canWrite(session: ServerSession, key: string) {
-  if (key === 'smartclass_is_authenticated_v1' || key === 'smartclass_current_session_v1') return false;
-  if (session.role === 'admin') return true;
-  if (!sameClassKey(key, session.classId)) return false;
-  if (key.startsWith('smartclass_feedbacks_v1_')) return true;
-  if (session.role === 'officer') {
-    if (key.startsWith('smartclass_logs_v1_')) return Boolean(session.permissions.canInputLogs);
-    if (key.startsWith('smartclass_attendance_v1_')) return Boolean(session.permissions.canTakeAttendance);
-  }
-  return false;
-}
+import { randomBytes } from 'node:crypto';
+import { db, ensureAuthTables, getSession, hashPin, verifyPin, tokenHash, setSessionCookie, clearSessionCookie } from '../lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === 'GET') {
+    try { const session = await getSession(req); return res.status(session ? 200 : 401).json(session ? { ok: true, session: { role: session.role, classId: session.classId, studentId: session.studentId, displayName: session.displayName, ...session.permissions, isLoggedIn: true, isReadOnly: session.role === 'student' } } : { ok: false }); }
+    catch { return res.status(500).json({ error: 'Auth service unavailable' }); }
   }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  const action = String(body.action || '');
   try {
-    const session = await getSession(req);
-    if (!session) return res.status(401).json({ error: 'Cần đăng nhập bằng PIN hợp lệ.' });
     const client = db(); await ensureAuthTables(client);
-    await client.execute(`CREATE TABLE IF NOT EXISTS app_storage (storage_key TEXT PRIMARY KEY, storage_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
-    if (req.method === 'GET') {
-      const result = await client.execute('SELECT storage_key, storage_value, updated_at FROM app_storage');
-      const items = result.rows.filter(row => canRead(session, String(row.storage_key))).map(row => ({ key: String(row.storage_key), value: String(row.storage_value), updatedAt: String(row.updated_at) }));
-      return res.status(200).json({ items, role: session.role });
+    if (action === 'logout') {
+      const current = await getSession(req);
+      if (current) await client.execute({ sql: 'DELETE FROM smartclass_sessions WHERE token_hash = ?', args: [current.id] });
+      clearSessionCookie(res); return res.status(200).json({ ok: true });
     }
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    if (!body || typeof body.key !== 'string' || !body.key.startsWith('smartclass_') || typeof body.value !== 'string') return res.status(400).json({ error: 'Invalid storage payload' });
-    if (!canWrite(session, body.key)) return res.status(403).json({ error: 'Tài khoản không có quyền cập nhật mục dữ liệu này.' });
-    // Students may only append their own new pending feedback; they cannot edit/delete others or approve feedback.
-    if (session.role !== 'admin' && body.key.startsWith('smartclass_feedbacks_v1_')) {
-      let incoming: any; try { incoming = JSON.parse(body.value); } catch { return res.status(400).json({ error: 'Dữ liệu phản hồi không hợp lệ.' }); }
-      if (!Array.isArray(incoming) || incoming.length > 5000) return res.status(400).json({ error: 'Danh sách phản hồi không hợp lệ.' });
-      const existingResult = await client.execute({ sql: 'SELECT storage_value FROM app_storage WHERE storage_key = ?', args: [body.key] });
-      let existing: any[] = [];
-      if (existingResult.rows[0]) { try { const parsed = JSON.parse(String(existingResult.rows[0].storage_value)); if (Array.isArray(parsed)) existing = parsed; } catch { existing = []; } }
-      const oldById = new Map(existing.map((item: any) => [String(item.id), JSON.stringify(item)]));
-      for (const old of existing) {
-        const candidate = incoming.find((item: any) => String(item?.id) === String(old?.id));
-        if (!candidate || JSON.stringify(candidate) !== oldById.get(String(old.id))) return res.status(403).json({ error: 'Không được sửa, xóa hoặc duyệt phản hồi đã tồn tại.' });
+    if (action === 'login') {
+      const pin = String(body.pin || ''); const classId = String(body.classId || '');
+      if (!/^\d{4,8}$/.test(pin) || !classId) return res.status(400).json({ error: 'Mã PIN phải có từ 4 đến 8 chữ số.' });
+      let role: 'admin' | 'officer' | 'student'; let studentId: string | undefined; let displayName: string; let permissions: Record<string, unknown> = {};
+      if (body.role === 'admin') {
+        const bootstrap = process.env.SMARTCLASS_ADMIN_PIN;
+        if (!bootstrap) return res.status(503).json({ error: 'Chưa cấu hình SMARTCLASS_ADMIN_PIN trên Vercel.' });
+        if (pin !== bootstrap) return res.status(401).json({ error: 'Mã PIN giáo viên không đúng.' });
+        role = 'admin'; displayName = String(body.displayName || 'Giáo viên chủ nhiệm'); permissions = { managePins: true, canInputLogs: true, canEditPoints: true, canTakeAttendance: true };
+      } else {
+        studentId = String(body.studentId || '');
+        const found = await client.execute({ sql: 'SELECT pin_hash, role, display_name, permissions FROM smartclass_credentials WHERE class_id = ? AND student_id = ? AND active = 1', args: [classId, studentId] });
+        const row = found.rows[0];
+        if (!row || !verifyPin(pin, String(row.pin_hash))) return res.status(401).json({ error: 'Mã PIN học sinh không đúng hoặc chưa được GVCN cấp.' });
+        role = String(row.role) as 'officer' | 'student'; displayName = String(row.display_name); permissions = JSON.parse(String(row.permissions || '{}'));
       }
-      const existingIds = new Set(existing.map((item: any) => String(item.id)));
-      for (const item of incoming) {
-        if (existingIds.has(String(item?.id))) continue;
-        if (!session.studentId || String(item?.studentId) !== session.studentId || item?.status !== 'pending') return res.status(403).json({ error: 'Chỉ được gửi phản hồi mới của chính tài khoản đang đăng nhập.' });
-      }
+      const token = randomBytes(32).toString('base64url'); const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
+      await client.execute({ sql: 'INSERT INTO smartclass_sessions(token_hash,class_id,role,student_id,display_name,permissions,expires_at) VALUES(?,?,?,?,?,?,?)', args: [tokenHash(token), classId, role, studentId || null, displayName, JSON.stringify(permissions), expiresAt] });
+      setSessionCookie(res, token);
+      return res.status(200).json({ ok: true, session: { role, classId, studentId, displayName, ...permissions, isLoggedIn: true, isReadOnly: role === 'student' } });
     }
-    await client.execute({ sql: `INSERT INTO app_storage(storage_key,storage_value,updated_at) VALUES(?,?,datetime('now')) ON CONFLICT(storage_key) DO UPDATE SET storage_value=excluded.storage_value,updated_at=datetime('now')`, args: [body.key, body.value] });
-    return res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error('Turso storage API error', error); return res.status(500).json({ error: 'Storage service unavailable' });
-  }
+    if (action === 'set-pin') {
+      const session = await getSession(req);
+      if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ GVCN đã xác thực mới được cấp PIN.' });
+      const classId = String(body.classId || ''); const studentId = String(body.studentId || ''); const pin = String(body.pin || '');
+      const role = body.role === 'officer' ? 'officer' : 'student';
+      if (classId !== session.classId) return res.status(403).json({ error: 'Không thể quản lý PIN lớp khác.' });
+      if (!studentId || !/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'Chọn học sinh và nhập PIN 4–8 chữ số.' });
+      const permissions = role === 'officer' ? {
+        canInputLogs: Boolean(body.permissions?.canInputLogs), canTakeAttendance: Boolean(body.permissions?.canTakeAttendance),
+        canEditPoints: Boolean(body.permissions?.canEditPoints), assignedCategories: Array.isArray(body.permissions?.assignedCategories) ? body.permissions.assignedCategories : [],
+        assignedTeams: Array.isArray(body.permissions?.assignedTeams) ? body.permissions.assignedTeams : [],
+      } : { canInputLogs: false, canTakeAttendance: false, canEditPoints: false };
+      const displayName = String(body.displayName || studentId).slice(0, 120);
+      await client.execute({ sql: `INSERT INTO smartclass_credentials(class_id,student_id,pin_hash,role,display_name,permissions,active,updated_at) VALUES(?,?,?,?,?,?,1,datetime('now')) ON CONFLICT(class_id,student_id) DO UPDATE SET pin_hash=excluded.pin_hash,role=excluded.role,display_name=excluded.display_name,permissions=excluded.permissions,active=1,updated_at=datetime('now')`, args: [classId, studentId, hashPin(pin), role, displayName, JSON.stringify(permissions)] });
+      return res.status(200).json({ ok: true, message: 'Đã lưu PIN và quyền cho học sinh.' });
+    }
+    if (action === 'revoke-pin') {
+      const session = await getSession(req);
+      if (!session || session.role !== 'admin' || String(body.classId || '') !== session.classId) return res.status(403).json({ error: 'Không đủ quyền.' });
+      await client.execute({ sql: 'UPDATE smartclass_credentials SET active=0, updated_at=datetime(\'now\') WHERE class_id=? AND student_id=?', args: [session.classId, String(body.studentId || '')] });
+      await client.execute({ sql: 'DELETE FROM smartclass_sessions WHERE class_id=? AND student_id=?', args: [session.classId, String(body.studentId || '')] });
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ error: 'Unknown action' });
+  } catch (error) { console.error('Auth API error', error); return res.status(500).json({ error: 'Auth service unavailable' }); }
 }
