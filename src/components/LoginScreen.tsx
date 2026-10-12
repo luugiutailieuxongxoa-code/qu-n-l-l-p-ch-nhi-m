@@ -60,6 +60,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'teacher' | 'student'>('teacher');
   const [pinInput, setPinInput] = useState('');
+  const [teacherUsername, setTeacherUsername] = useState('');
+  const [loginMode, setLoginMode] = useState<'teacher' | 'admin'>('teacher');
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,8 +101,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleTeacherLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setPinError(false); setAuthMessage(''); setAuthBusy(true);
     try {
-      const result = await loginWithPin({ role: 'admin', classId: activeClassId, pin: pinInput.trim(), displayName: `${classInfo.teacherName} (GVCN - Admin)` });
-      onLoginSuccess({ ...result.session, role: 'admin', classId: activeClassId, displayName: `${classInfo.teacherName} (GVCN - Admin)`, canEditPoints: true, canTakeAttendance: true, canInputLogs: true, isReadOnly: false, isLoggedIn: true }, activeClassId);
+      const result = loginMode === 'admin'
+        ? await loginWithPin({ role: 'admin', classId: activeClassId, password: pinInput.trim() })
+        : await loginWithPin({ role: 'teacher', classId: activeClassId, username: teacherUsername.trim(), password: pinInput.trim() });
+      const session = result.session;
+      onLoginSuccess({ ...session, role: session.role === 'admin' ? 'admin' : 'teacher', classId: session.classId || activeClassId, canEditPoints: true, canTakeAttendance: true, canInputLogs: true, isReadOnly: false, isLoggedIn: true }, session.classId || activeClassId);
     } catch (error) { setPinError(true); setAuthMessage(error instanceof Error ? error.message : 'Đăng nhập thất bại.'); }
     finally { setAuthBusy(false); }
   };
@@ -292,13 +297,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {activeTab === 'teacher' && (
               <div className="max-w-xl mx-auto space-y-5">
                 {/* Quyền hạn Admin */}
+                <div className="flex gap-2"><button type="button" onClick={() => { setLoginMode('teacher'); setPinInput(''); setPinError(false); }} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${loginMode === 'teacher' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>Đăng nhập GVCN</button><button type="button" onClick={() => { setLoginMode('admin'); setPinInput(''); setPinError(false); }} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${loginMode === 'admin' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-300'}`}>Admin hệ thống</button></div>
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-2">
                   <div className="flex items-center space-x-2 font-bold text-amber-400 text-sm">
                     <Shield className="w-4 h-4" />
-                    <span>Quyền Hạn Toàn Quyền Của Giáo Viên (Admin):</span>
+                    <span>{loginMode === 'admin' ? 'Quản trị viên hệ thống' : 'Giáo viên chủ nhiệm lớp được phân công'}:</span>
                   </div>
                   <ul className="space-y-1.5 text-amber-200/90 pl-5 list-disc text-xs leading-relaxed">
-                    <li>Chỉnh sửa tất cả nội dung: thông tin lớp, danh sách học sinh, nội quy thi đua.</li>
+                    <li>{loginMode === 'admin' ? 'Quản lý tài khoản GVCN và phân công lớp.' : 'Quản lý dữ liệu của lớp được Admin phân công.'}</li>
                     <li>Điểm danh, ghi nhận lỗi vi phạm & điểm cộng cho tất cả học sinh.</li>
                     <li>Phân quyền nhiệm vụ cho Ban cán sự (Lớp trưởng, Cờ đỏ, Tổ trưởng).</li>
                     <li><strong>Khóa sổ tổng kết thi đua sau mỗi tuần học và tháng học</strong> để chốt điểm và chống sửa đổi.</li>
@@ -309,8 +315,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <form onSubmit={handleTeacherLogin} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Mã PIN Quản Trị Giáo Viên Chủ Nhiệm (Lớp {classInfo.className}):
+                      {loginMode === 'admin' ? 'Mật khẩu Admin hệ thống:' : 'Mật khẩu GVCN:'}
                     </label>
+                    {loginMode === 'teacher' && <div><label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="teacher-username">Tên đăng nhập GVCN</label><input id="teacher-username" type="text" autoComplete="username" required value={teacherUsername} onChange={e => setTeacherUsername(e.target.value)} placeholder="Tên đăng nhập do Admin cấp" className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500" /></div>}
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <KeyRound className="w-4 h-4" />
@@ -322,7 +329,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                           setPinInput(e.target.value);
                           setPinError(false);
                         }}
-                        placeholder="Nhập PIN do GVCN cấu hình"
+                        placeholder="Nhập mật khẩu"
+                        autoComplete={loginMode === 'admin' ? 'current-password' : 'current-password'}
+                        required
+                        maxLength={64}
                         className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                         autoFocus
                       />
@@ -341,7 +351,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       </p>
                     ) : (
                       <p className="text-[11px] text-slate-400 mt-1">
-                        PIN do GVCN cấu hình trong biến môi trường Vercel.
+                        {loginMode === 'admin' ? 'Mật khẩu Admin được cấu hình trong biến SMARTCLASS_ADMIN_PASSWORD trên Vercel.' : 'Sử dụng tên đăng nhập và mật khẩu do Admin cấp.'}
                       </p>
                     )}
                   </div>
@@ -350,7 +360,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="submit"
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-[#1E3A8A] hover:from-blue-500 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-900/50 transition-all flex items-center justify-center space-x-2 text-sm cursor-pointer"
                   >
-                    <span>Vào Giao Diện Quản Trị Lớp {classInfo.className}</span>
+                    <span>{loginMode === 'admin' ? 'Đăng nhập Admin hệ thống' : 'Đăng nhập GVCN'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </form>
@@ -505,11 +515,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div><h3 className="text-lg font-bold text-white">Xác thực học sinh</h3><p className="mt-1 text-sm text-slate-300">{selectedStudent.name} · Tổ {selectedStudent.team}</p></div>
               <button type="button" onClick={() => setSelectedStudent(null)} className="rounded-lg p-2 text-slate-300 hover:bg-slate-800" aria-label="Đóng">✕</button>
             </div>
-            <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="student-pin">Mã PIN cá nhân</label>
-            <input id="student-pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" minLength={4} maxLength={8} required value={studentPin} onChange={e => setStudentPin(e.target.value)} className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-lg tracking-[0.3em] text-white outline-none focus:border-blue-500" placeholder="••••••" />
+            <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="student-pin">Mật khẩu cá nhân</label>
+            <input id="student-pin" type="password" autoComplete="current-password" minLength={8} maxLength={64} required value={studentPin} onChange={e => setStudentPin(e.target.value)} className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-lg tracking-[0.3em] text-white outline-none focus:border-blue-500" placeholder="Nhập mật khẩu cá nhân" />
             {authMessage && <p className="mt-3 text-sm text-rose-300">{authMessage}</p>}
             <button type="submit" disabled={authBusy} className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-500 disabled:opacity-60">{authBusy ? 'Đang xác thực…' : 'Đăng nhập'}</button>
-            <p className="mt-3 text-xs text-slate-400">Nếu chưa có PIN, liên hệ giáo viên chủ nhiệm.</p>
+            <p className="mt-3 text-xs text-slate-400">Nếu chưa có mật khẩu, liên hệ giáo viên chủ nhiệm.</p>
           </form>
         </div>
       )}
