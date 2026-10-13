@@ -24,8 +24,7 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^6.2.3",
-    "xlsx": "^0.18.5",
+     "xlsx": "^0.18.5",
     "@libsql/client": "^0.15.15"
   },
   "devDependencies": {
