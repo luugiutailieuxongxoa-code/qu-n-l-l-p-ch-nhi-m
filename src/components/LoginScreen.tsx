@@ -194,7 +194,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       {/* Main Container */}
       <main className="relative z-10 max-w-5xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
         {/* Step 1: Chọn Lớp Học */}
-        <section className="mb-6">
+        <section className={activeTab === 'student' ? "mb-6" : "hidden"}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div className="flex items-center space-x-2">
               <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold border border-blue-500/30">
@@ -204,14 +204,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 Chọn Lớp Học Của Bạn (Lưu Trữ & Giao Diện Riêng)
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAddClassModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-950/60 hover:bg-blue-900/60 px-3 py-1.5 rounded-xl border border-blue-700/50 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Thêm Lớp Mới</span>
-            </button>
+
           </div>
 
           {/* Grid Thẻ Lớp Học */}
