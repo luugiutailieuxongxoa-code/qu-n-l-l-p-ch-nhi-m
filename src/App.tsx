@@ -71,6 +71,9 @@ export default function App() {
   // Không tin trạng thái đăng nhập lưu trong localStorage; xác minh cookie HttpOnly với máy chủ.
   const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(false);
   const [adminHasOpenedClass, setAdminHasOpenedClass] = useState(false);
+  const [showCreateClass, setShowCreateClass] = useState(false);
+  const [creatingClass, setCreatingClass] = useState(false);
+  const [newClassForm, setNewClassForm] = useState({ className: '', teacherName: '', username: '', password: '', schoolName: 'THPT Thống Nhất B', academicYear: '2026 - 2027', location: 'Phước Sơn' });
   useEffect(() => {
     let cancelled = false;
     fetch('/api/classes', { credentials: 'same-origin', cache: 'no-store' })
@@ -286,6 +289,33 @@ export default function App() {
         }
       }
     }
+  };
+
+  // Tạo lớp từ màn hình quản trị: không tự động mở lớp sau khi tạo.
+  const handleCreateClassFromAdmin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (currentSession.role !== 'admin') return;
+    const f = newClassForm;
+    if (!f.className.trim() || !f.teacherName.trim() || !f.username.trim() || !f.password) { alert('Vui lòng nhập tên lớp, họ tên GVCN, tên đăng nhập và mật khẩu.'); return; }
+    if (f.password.length < 8 || !/[A-Za-z]/.test(f.password) || !/[0-9]/.test(f.password) || !/[^A-Za-z0-9\s]/.test(f.password)) { alert('Mật khẩu GVCN cần 8–64 ký tự, gồm chữ, số và ký tự đặc biệt.'); return; }
+    if (classes.some(c => c.className.trim().toLowerCase() === f.className.trim().toLowerCase())) { alert('Tên lớp đã tồn tại.'); return; }
+    setCreatingClass(true);
+    try {
+      const created = addNewClass({ className: f.className, teacherName: f.teacherName, schoolName: f.schoolName, academicYear: f.academicYear, location: f.location });
+      const updated = getStoredClasses();
+      const saveClasses = await fetch('/api/classes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classes: updated }) });
+      const saveResult = await saveClasses.json().catch(() => ({}));
+      if (!saveClasses.ok) throw new Error(saveResult.error || 'Không lưu được lớp lên máy chủ.');
+      const teacherResponse = await fetch('/api/auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'manage-teacher', username: f.username, classId: created.id, displayName: f.teacherName, password: f.password }) });
+      const teacherResult = await teacherResponse.json().catch(() => ({}));
+      if (!teacherResponse.ok) throw new Error(teacherResult.error || 'Lớp đã tạo nhưng chưa cấp được tài khoản GVCN. Hãy kiểm tra lại trong quản lý tài khoản.');
+      setClasses(updated); setShowCreateClass(false);
+      setNewClassForm({ className: '', teacherName: '', username: '', password: '', schoolName: 'THPT Thống Nhất B', academicYear: '2026 - 2027', location: 'Phước Sơn' });
+      alert(`Đã tạo lớp ${created.className} và cấp tài khoản GVCN ${f.username}.`);
+    } catch (error) {
+      setClasses(getStoredClasses());
+      alert(error instanceof Error ? error.message : 'Không tạo được lớp.');
+    } finally { setCreatingClass(false); }
   };
 
   // Đăng nhập thành công từ LoginScreen
@@ -539,9 +569,10 @@ export default function App() {
             <div><p className="text-sm text-blue-300 font-semibold">SMARTCLASS · QUẢN TRỊ HỆ THỐNG</p><h1 className="text-3xl font-black mt-1">Quản lý danh sách lớp</h1><p className="text-slate-400 mt-2">Chọn một lớp đã tạo để mở giao diện quản lý riêng.</p></div>
             <button onClick={handleLogout} className="rounded-xl border border-slate-700 px-4 py-2 hover:bg-slate-800">Đăng xuất</button>
           </header>
-          <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-lg font-bold">Các lớp đã tạo ({classes.length})</h2><p className="text-sm text-slate-400">Chỉ Admin có quyền thêm hoặc xóa lớp.</p></div>
-          {classes.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-700 p-10 text-center text-slate-400">Chưa có lớp nào. Hãy tạo lớp từ chức năng quản lý lớp trong ứng dụng.</div> : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{classes.map(item => <button key={item.id} onClick={() => handleSelectClass(item.id)} className="text-left rounded-2xl border border-slate-700 bg-slate-900 p-5 hover:border-blue-500 hover:bg-slate-900/80 transition"><div className="flex items-center justify-between gap-3"><span className="text-xl font-extrabold">Lớp {item.className}</span><span className="text-blue-300 text-sm">Mở lớp →</span></div><p className="text-sm text-slate-400 mt-3">GVCN: {item.teacherName || 'Chưa phân công'}</p><p className="text-xs text-slate-500 mt-1">{item.schoolName || ''}</p></button>)}</div>}
-          <p className="text-xs text-slate-500 mt-8">Lưu ý: thao tác mở lớp chỉ chuyển vào giao diện quản lý; quyền truy cập dữ liệu vẫn cần được kiểm tra tại API.</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h2 className="text-lg font-bold">Các lớp đã tạo ({classes.length})</h2><button onClick={() => setShowCreateClass(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 font-semibold">+ Tạo lớp mới</button></div>
+          {classes.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-700 p-10 text-center text-slate-400">Chưa có lớp nào. Nhấn “Tạo lớp mới” để bắt đầu.</div> : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{classes.map(item => <div key={item.id} className="rounded-2xl border border-slate-700 bg-slate-900 p-5"><div className="flex items-center justify-between gap-3"><h3 className="text-xl font-extrabold">Lớp {item.className}</h3><button onClick={() => handleSelectClass(item.id)} className="text-blue-300 text-sm hover:text-blue-200">Mở lớp →</button></div><p className="text-sm text-slate-300 mt-3">GVCN: {item.teacherName || 'Chưa phân công'}</p><p className="text-xs text-slate-500 mt-1">{item.schoolName || ''}</p><p className="text-xs text-slate-500 mt-1">Năm học: {item.academicYear || 'Chưa thiết lập'}</p><button onClick={() => handleDeleteClass(item.id)} className="mt-4 rounded-lg border border-red-900/80 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60">Xóa lớp</button></div>)}</div>}
+          {showCreateClass && <div className="fixed inset-0 z-50 bg-black/70 p-4 flex items-center justify-center overflow-y-auto"><form onSubmit={handleCreateClassFromAdmin} className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="flex items-center justify-between gap-3 mb-5"><div><h2 className="text-2xl font-bold">Tạo lớp mới</h2><p className="text-sm text-slate-400 mt-1">Thông tin lớp và tài khoản GVCN</p></div><button type="button" onClick={() => setShowCreateClass(false)} className="rounded-lg border border-slate-700 px-3 py-1.5">Đóng</button></div><div className="grid sm:grid-cols-2 gap-4">{[{key:'className',label:'Tên lớp',placeholder:'Ví dụ: 10A4',required:true},{key:'teacherName',label:'Họ tên giáo viên chủ nhiệm',placeholder:'Nguyễn Văn A',required:true},{key:'username',label:'Tên đăng nhập GVCN',placeholder:'gvcn10a4',required:true},{key:'password',label:'Mật khẩu ban đầu',placeholder:'Tối thiểu 8 ký tự, có chữ, số, ký tự đặc biệt',required:true},{key:'schoolName',label:'Tên trường',placeholder:'Tên trường',required:true},{key:'academicYear',label:'Năm học',placeholder:'2026 - 2027',required:true},{key:'location',label:'Địa điểm',placeholder:'Xã/phường',required:false}].map(field => <label key={field.key} className="block"><span className="block text-sm text-slate-300 mb-1">{field.label}</span><input required={field.required} type={field.key==='password'?'password':'text'} autoComplete={field.key==='password'?'new-password':'off'} value={(newClassForm as any)[field.key]} onChange={e => setNewClassForm(prev => ({...prev,[field.key]:e.target.value}))} placeholder={field.placeholder} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white placeholder:text-slate-600 focus:border-blue-500 outline-none" /></label>)}</div><p className="text-xs text-slate-400 mt-4">Mật khẩu được gửi đến API xác thực để băm và lưu trên máy chủ; không lưu mật khẩu rõ trong thông tin lớp.</p><div className="flex justify-end gap-3 mt-6"><button type="button" onClick={() => setShowCreateClass(false)} className="rounded-xl border border-slate-700 px-4 py-2">Hủy</button><button disabled={creatingClass} type="submit" className="rounded-xl bg-blue-600 px-5 py-2 font-semibold disabled:opacity-50">{creatingClass?'Đang tạo…':'Tạo lớp và tài khoản GVCN'}</button></div></form></div>}
+          <p className="text-xs text-slate-500 mt-8">Chỉ Admin được tạo/xóa lớp. Tạo lớp không tự động mở lớp; hãy nhấn “Mở lớp” khi muốn vào giao diện quản lý.</p>
         </div>
       </div>
     );
