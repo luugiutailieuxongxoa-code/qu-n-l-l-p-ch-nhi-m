@@ -183,15 +183,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
           </div>
 
-          <div className="text-xs text-slate-400 bg-slate-800/70 px-3.5 py-1.5 rounded-xl border border-slate-700/60">
-            Cổng truy cập dành cho Quản trị viên, GVCN và học sinh
+          <div className="text-xs text-slate-400 flex items-center space-x-4 bg-slate-800/70 px-3.5 py-1.5 rounded-xl border border-slate-700/60">
+            <span>GVCN: <strong className="text-white">{classInfo.teacherName}</strong></span>
+            <span>•</span>
+            <span>Năm học: <strong className="text-blue-300">{classInfo.academicYear}</strong></span>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="relative z-10 max-w-5xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
-        {/* Danh sách lớp chỉ dùng cho luồng đăng nhập học sinh; GVCN không phải chọn lớp. */}
+        {/* Danh sách lớp chỉ dùng cho luồng học sinh; Admin/GVCN đăng nhập không phải chọn lớp. */}
         {activeTab === 'student' && <section className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div className="flex items-center space-x-2">
@@ -252,7 +254,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         </section>}
 
-        {/* Cổng đăng nhập theo vai trò */}
+        {/* Step 2: Chọn Vai Trò Đăng Nhập */}
         <section className="bg-slate-800/80 border border-slate-700 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
           {/* Header Tab Switcher */}
           <div className="p-2 bg-slate-900/60 border-b border-slate-700/70 flex gap-2">
@@ -266,7 +268,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               }`}
             >
               <Shield className={`w-4 h-4 ${activeTab === 'teacher' ? 'text-amber-400' : ''}`} />
-              <span>Quản trị viên & Giáo viên chủ nhiệm</span>
+              <span>1. Giáo Viên Chủ Nhiệm (Admin)</span>
             </button>
 
             <button
@@ -279,7 +281,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               }`}
             >
               <Users className={`w-4 h-4 ${activeTab === 'student' ? 'text-amber-400' : ''}`} />
-              <span>Học sinh & Ban cán sự lớp</span>
+              <span>2. Học Sinh & Ban Cán Sự Lớp</span>
             </button>
           </div>
 
@@ -292,10 +294,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-2">
                   <div className="flex items-center space-x-2 font-bold text-amber-400 text-sm">
                     <Shield className="w-4 h-4" />
-                    <span>{loginMode === 'admin' ? 'Quản trị viên hệ thống' : 'Giáo viên chủ nhiệm'}:</span>
+                    <span>{loginMode === 'admin' ? 'Quản trị viên hệ thống' : 'Giáo viên chủ nhiệm lớp được phân công'}:</span>
                   </div>
                   <ul className="space-y-1.5 text-amber-200/90 pl-5 list-disc text-xs leading-relaxed">
-                    <li>{loginMode === 'admin' ? 'Tạo và quản lý lớp, cấp tài khoản và phân công GVCN.' : 'Đăng nhập sẽ đưa bạn thẳng vào lớp được Admin phân công.'}</li>
+                    <li>{loginMode === 'admin' ? 'Quản lý tài khoản GVCN và phân công lớp.' : 'Quản lý dữ liệu của lớp được Admin phân công.'}</li>
                     <li>Điểm danh, ghi nhận lỗi vi phạm & điểm cộng cho tất cả học sinh.</li>
                     <li>Phân quyền nhiệm vụ cho Ban cán sự (Lớp trưởng, Cờ đỏ, Tổ trưởng).</li>
                     <li><strong>Khóa sổ tổng kết thi đua sau mỗi tuần học và tháng học</strong> để chốt điểm và chống sửa đổi.</li>
