@@ -72,6 +72,20 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(false);
   useEffect(() => {
     let cancelled = false;
+    fetch('/api/classes', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async response => response.ok ? response.json() : null)
+      .then(result => {
+        if (cancelled || !Array.isArray(result?.classes)) return;
+        const cloudClasses = result.classes as ClassItem[];
+        localStorage.setItem('smartclass_classes_list_v1', JSON.stringify(cloudClasses));
+        setClasses(cloudClasses);
+        const current = localStorage.getItem('smartclass_active_class_id_v1');
+        if (cloudClasses.length > 0 && (!current || !cloudClasses.some(c => c.id === current))) {
+          localStorage.setItem('smartclass_active_class_id_v1', cloudClasses[0].id);
+          setActiveClassIdState(cloudClasses[0].id);
+        }
+      })
+      .catch(() => undefined);
     fetch('/api/auth', { credentials: 'same-origin', cache: 'no-store' })
       .then(async response => response.ok ? response.json() : null)
       .then(result => {
@@ -159,6 +173,7 @@ export default function App() {
   // Chuyển đổi lớp học đang hoạt động (Multi-tenancy isolation)
   const handleSelectClass = (newClassId: string) => {
     if (currentSession.role === 'teacher' && newClassId !== currentSession.classId) return;
+    if (currentSession.role === 'admin' && classes.length > 0 && !classes.some((item) => item.id === newClassId)) return;
     setActiveClassId(newClassId);
     setActiveClassIdState(newClassId);
 
@@ -236,7 +251,11 @@ export default function App() {
     adminPin?: string;
   }): ClassItem => {
     const created = addNewClass(newClassData);
-    setClasses(getStoredClasses());
+    const updated = getStoredClasses();
+    setClasses(updated);
+    void fetch('/api/classes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classes: updated }) })
+      .then(async response => { if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Không lưu được danh sách lớp lên máy chủ.'); } })
+      .catch(error => alert(error instanceof Error ? error.message : 'Không đồng bộ được danh sách lớp.'));
     handleSelectClass(created.id);
     return created;
   };
@@ -257,6 +276,9 @@ export default function App() {
       if (success) {
         const remaining = getStoredClasses();
         setClasses(remaining);
+        void fetch('/api/classes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classes: remaining }) })
+          .then(async response => { if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Không lưu được danh sách lớp lên máy chủ.'); } })
+          .catch(error => alert(error instanceof Error ? error.message : 'Không đồng bộ được danh sách lớp.'));
         if (activeClassId === classIdToDelete) {
           handleSelectClass(remaining[0].id);
         }
