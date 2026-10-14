@@ -76,7 +76,7 @@ export const getStoredClasses = (): ClassItem[] => {
     const data = localStorage.getItem(STORAGE_KEYS.CLASSES);
     if (data) {
       const parsed = JSON.parse(data) as ClassItem[];
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {
     console.error('Failed to load classes list', e);
