@@ -70,6 +70,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const username = String(body.username || '').trim(); const classId = String(body.classId || '').trim(); const displayName = String(body.displayName || '').trim().slice(0, 120); const password = String(body.password || '');
       if (!/^[A-Za-z0-9._-]{3,40}$/.test(username) || !classId || !displayName) return res.status(400).json({ error: 'Tên đăng nhập (3–40 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang), lớp và họ tên là bắt buộc.' });
       if (password && !isStrongPassword(password)) return res.status(400).json({ error: 'Mật khẩu phải dài 8–64 ký tự, gồm chữ cái, số và ký tự đặc biệt.' });
+      await client.execute(`CREATE TABLE IF NOT EXISTS app_storage (storage_key TEXT PRIMARY KEY, storage_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+      const classListResult = await client.execute({ sql: 'SELECT storage_value FROM app_storage WHERE storage_key=?', args: ['smartclass_classes_list_v1'] });
+      let knownClasses: any[] = [];
+      try { const parsed = JSON.parse(String(classListResult.rows[0]?.storage_value || '[]')); if (Array.isArray(parsed)) knownClasses = parsed; } catch { knownClasses = []; }
+      if (!knownClasses.some((item: any) => String(item.id) === classId)) return res.status(400).json({ error: 'Phải tạo lớp trước khi cấp tài khoản GVCN.' });
       const old = await client.execute({ sql: 'SELECT username FROM smartclass_teacher_accounts WHERE username=? COLLATE NOCASE', args: [username] });
       if (!old.rows.length && !password) return res.status(400).json({ error: 'Tạo tài khoản mới cần mật khẩu ban đầu.' });
       if (password) await client.execute({ sql: `INSERT INTO smartclass_teacher_accounts(username,class_id,password_hash,display_name,active,updated_at) VALUES(?,?,?,?,1,datetime('now')) ON CONFLICT(username) DO UPDATE SET class_id=excluded.class_id,password_hash=excluded.password_hash,display_name=excluded.display_name,active=1,updated_at=datetime('now')`, args: [username, classId, hashPin(password), displayName] });
