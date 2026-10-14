@@ -194,14 +194,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       {/* Main Container */}
       <main className="relative z-10 max-w-5xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
         {/* Step 1: Chọn Lớp Học */}
-        <section className={activeTab === 'student' ? "mb-6" : "hidden"}>
+        <section className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div className="flex items-center space-x-2">
               <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold border border-blue-500/30">
                 1
               </div>
               <h2 className="text-sm font-bold text-white tracking-wide uppercase">
-                Chọn Lớp Học Của Bạn (Lưu Trữ & Giao Diện Riêng)
+                Danh Sách Lớp Đã Được Quản Trị Viên Tạo
               </h2>
             </div>
 
