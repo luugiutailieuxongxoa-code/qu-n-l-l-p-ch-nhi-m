@@ -70,6 +70,7 @@ export default function App() {
   const [activeClassId, setActiveClassIdState] = useState<string>(getActiveClassId);
   // Không tin trạng thái đăng nhập lưu trong localStorage; xác minh cookie HttpOnly với máy chủ.
   const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(false);
+  const [adminHasOpenedClass, setAdminHasOpenedClass] = useState(false);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/classes', { credentials: 'same-origin', cache: 'no-store' })
@@ -172,6 +173,7 @@ export default function App() {
 
   // Chuyển đổi lớp học đang hoạt động (Multi-tenancy isolation)
   const handleSelectClass = (newClassId: string) => {
+    if (currentSession.role === 'admin') setAdminHasOpenedClass(true);
     if (currentSession.role === 'teacher' && newClassId !== currentSession.classId) return;
     if (currentSession.role === 'admin' && classes.length > 0 && !classes.some((item) => item.id === newClassId)) return;
     setActiveClassId(newClassId);
@@ -293,6 +295,7 @@ export default function App() {
     setIsAuthenticatedState(true);
     setCurrentSession({ ...session, classId: assignedClassId, isLoggedIn: true });
     saveStoredSession({ ...session, classId: assignedClassId, isLoggedIn: true });
+    setAdminHasOpenedClass(session.role !== 'admin');
     setActiveClassId(assignedClassId);
     setActiveClassIdState(assignedClassId);
     setStudents(getStoredStudents(assignedClassId));
@@ -308,6 +311,7 @@ export default function App() {
     void logoutServer().catch(() => undefined);
     persistIsAuthenticated(false);
     setIsAuthenticatedState(false);
+    setAdminHasOpenedClass(false);
     const updatedSession = { ...currentSession, isLoggedIn: false };
     setCurrentSession(updatedSession);
     saveStoredSession(updatedSession);
@@ -524,6 +528,22 @@ export default function App() {
         students={students}
         onLoginSuccess={handleLoginSuccess}
       />
+    );
+  }
+
+  if (isAuthenticated && currentSession.role === 'admin' && !adminHasOpenedClass) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white p-6">
+        <div className="max-w-6xl mx-auto">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
+            <div><p className="text-sm text-blue-300 font-semibold">SMARTCLASS · QUẢN TRỊ HỆ THỐNG</p><h1 className="text-3xl font-black mt-1">Quản lý danh sách lớp</h1><p className="text-slate-400 mt-2">Chọn một lớp đã tạo để mở giao diện quản lý riêng.</p></div>
+            <button onClick={handleLogout} className="rounded-xl border border-slate-700 px-4 py-2 hover:bg-slate-800">Đăng xuất</button>
+          </header>
+          <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-lg font-bold">Các lớp đã tạo ({classes.length})</h2><p className="text-sm text-slate-400">Chỉ Admin có quyền thêm hoặc xóa lớp.</p></div>
+          {classes.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-700 p-10 text-center text-slate-400">Chưa có lớp nào. Hãy tạo lớp từ chức năng quản lý lớp trong ứng dụng.</div> : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{classes.map(item => <button key={item.id} onClick={() => handleSelectClass(item.id)} className="text-left rounded-2xl border border-slate-700 bg-slate-900 p-5 hover:border-blue-500 hover:bg-slate-900/80 transition"><div className="flex items-center justify-between gap-3"><span className="text-xl font-extrabold">Lớp {item.className}</span><span className="text-blue-300 text-sm">Mở lớp →</span></div><p className="text-sm text-slate-400 mt-3">GVCN: {item.teacherName || 'Chưa phân công'}</p><p className="text-xs text-slate-500 mt-1">{item.schoolName || ''}</p></button>)}</div>}
+          <p className="text-xs text-slate-500 mt-8">Lưu ý: thao tác mở lớp chỉ chuyển vào giao diện quản lý; quyền truy cập dữ liệu vẫn cần được kiểm tra tại API.</p>
+        </div>
+      </div>
     );
   }
 
