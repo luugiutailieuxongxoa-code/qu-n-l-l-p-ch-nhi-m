@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const session = await getSession(req);
     if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ Admin được quản lý danh sách lớp.' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    if (!Array.isArray(body?.classes) || body.classes.length > 300 || !body.classes.every(isClass)) return res.status(400).json({ error: 'Danh sách lớp không hợp lệ.' });
+    if (!Array.isArray(body?.classes) || !body.classes.every(isClass)) return res.status(400).json({ error: 'Danh sách lớp không hợp lệ.' });
     const ids = body.classes.map((c: any) => c.id);
     if (new Set(ids).size !== ids.length) return res.status(400).json({ error: 'Mã lớp bị trùng.' });
     const previousResult = await client.execute({ sql: 'SELECT storage_value FROM app_storage WHERE storage_key=?', args: [KEY] });
