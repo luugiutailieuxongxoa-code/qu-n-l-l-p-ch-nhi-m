@@ -87,6 +87,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const result = await client.execute('SELECT username,class_id,display_name,active,updated_at FROM smartclass_teacher_accounts ORDER BY class_id,username');
       return res.status(200).json({ ok: true, teachers: result.rows.map(r => ({ username: String(r.username), classId: String(r.class_id), displayName: String(r.display_name), active: Number(r.active) === 1, updatedAt: String(r.updated_at) })) });
     }
+    if (action === 'delete-teacher') {
+      if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ Admin hệ thống được xóa tài khoản GVCN.' });
+      const username = String(body.username || '').trim();
+      if (!username) return res.status(400).json({ error: 'Thiếu tên đăng nhập GVCN.' });
+      await client.execute({ sql: 'DELETE FROM smartclass_teacher_accounts WHERE username=? COLLATE NOCASE', args: [username] });
+      await client.execute({ sql: "DELETE FROM smartclass_sessions WHERE role='teacher' AND json_extract(permissions,'$.username')=? COLLATE NOCASE", args: [username] });
+      return res.status(200).json({ ok: true, message: 'Đã xóa tài khoản GVCN.' });
+    }
     if (action === 'lock-teacher') {
       if (!session || session.role !== 'admin') return res.status(403).json({ error: 'Chỉ Admin hệ thống được khóa tài khoản GVCN.' });
       const username = String(body.username || '').trim();
