@@ -926,14 +926,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          {isAdmin && (
+          {isClassManager && (
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
                 className="inline-flex items-center space-x-1.5 px-5 py-2.5 bg-[#1E3A8A] hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
               >
                 <Save className="w-4 h-4" />
-                <span>Lưu Thông Tin Lớp Học & Mã PIN</span>
+                <span>{isAdmin ? 'Lưu Thông Tin Lớp Học & Mã PIN' : 'Lưu Cài Đặt Lớp Chủ Nhiệm'}</span>
               </button>
             </div>
           )}
