@@ -175,12 +175,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            <div className="text-xs text-white/90 bg-black/15 px-2.5 py-1.5 rounded-xl border border-white/15 hidden lg:block">
-              GVCN: <span className="font-medium text-white">{classInfo.teacherName}</span>
-              {classInfo.location && (
-                <span className="text-white/70 ml-1">({classInfo.location})</span>
-              )}
-            </div>
           </div>
 
           {/* Right Role Switcher & Action Buttons */}
@@ -309,9 +303,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>
                 Lớp: <strong className="text-white">{classInfo.className}</strong> (Tuần{' '}
                 {classInfo.weekNumber})
-              </span>
-              <span>
-                GVCN: <strong className="text-white">{classInfo.teacherName}</strong>
               </span>
             </div>
             <div className="text-[11px] text-white/80">
