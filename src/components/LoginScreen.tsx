@@ -178,16 +178,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <span>{classInfo.schoolName || 'THPT Thống Nhất B'}</span>
                 <span>•</span>
                 <MapPin className="w-3 h-3 text-emerald-400 inline" />
-                <span>{classInfo.location || 'Phước Sơn'}</span>
+                <span>{classInfo.location || 'Phước Sơn-TP.Đồng Nai'}</span>
               </p>
             </div>
           </div>
 
-          <div className="text-xs text-slate-400 flex items-center space-x-4 bg-slate-800/70 px-3.5 py-1.5 rounded-xl border border-slate-700/60">
-            <span>GVCN: <strong className="text-white">{classInfo.teacherName}</strong></span>
-            <span>•</span>
-            <span>Năm học: <strong className="text-blue-300">{classInfo.academicYear}</strong></span>
-          </div>
         </div>
       </header>
 
