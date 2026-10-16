@@ -90,15 +90,26 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
     }
   };
 
+  // Ưu tiên sơ đồ đã lưu của đúng lớp; nếu chưa lưu/không đọc được thì dựng sơ đồ tạm
+  // từ danh sách học sinh hiện tại để bản in không bị trắng.
   const seatingPlan = (() => {
     try {
       const raw = localStorage.getItem(`smartclass_seating_plan_v1_${classId}`);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      return parsed && Array.isArray(parsed.seats) ? parsed as { rows: number; columns: number; seats: Array<{ desk: number; studentIds: string[] }> } : null;
-    } catch { return null; }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.seats) && parsed.seats.length) return parsed as { rows: number; columns: number; seats: Array<{ desk: number; studentIds: string[] }> };
+      }
+    } catch (error) { console.warn('Không đọc được sơ đồ đã lưu; sẽ dựng sơ đồ tạm.', error); }
+    const perDesk = 2;
+    const columns = 4;
+    const count = Math.max(24, Math.ceil(students.length / perDesk));
+    const seats = Array.from({ length: count }, (_, index) => ({
+      desk: index + 1,
+      studentIds: students.slice(index * perDesk, index * perDesk + perDesk).map(student => String(student.id))
+    }));
+    return { rows: Math.ceil(count / columns), columns, seats };
   })();
-  const seatingStudentMap = new Map(students.map(student => [student.id, student]));
+  const seatingStudentMap = new Map(students.map(student => [String(student.id), student]));
 
   const locationStr = classInfo.location?.trim() || 'Phước Sơn';
 
@@ -342,7 +353,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                   <div key={seat.desk} className="min-h-[66px] rounded-md border border-slate-300 bg-slate-50 p-2 text-center">
                     <div className="mb-1 text-[10px] font-bold text-slate-500">BÀN {seat.desk}</div>
                     {(seat.studentIds || []).map((studentId, slot) => {
-                      const student = seatingStudentMap.get(studentId);
+                      const student = seatingStudentMap.get(String(studentId));
                       return <div key={`${seat.desk}-${slot}`} className="truncate text-[10px] font-medium text-slate-800">{student?.name || (studentId ? 'Học sinh' : 'Trống')}</div>;
                     })}
                     {!(seat.studentIds || []).length && <div className="text-[10px] text-slate-400">Trống</div>}
