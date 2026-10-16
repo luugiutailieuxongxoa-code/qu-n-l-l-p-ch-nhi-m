@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ClassInfo, StudentScoreSummary, TeamScoreSummary, EvaluationPeriod } from '../types';
+import { ClassInfo, Student, StudentScoreSummary, TeamScoreSummary, EvaluationPeriod } from '../types';
 import { X, Printer, FileText, CheckCircle } from 'lucide-react';
 import { exportToPdf } from '../utils/exportPdf';
 
 interface PrintReportViewProps {
+  classId: string;
+  students: Student[];
   classInfo: ClassInfo;
   studentSummaries: StudentScoreSummary[];
   teamSummaries: TeamScoreSummary[];
@@ -12,6 +14,8 @@ interface PrintReportViewProps {
 }
 
 export const PrintReportView: React.FC<PrintReportViewProps> = ({
+  classId,
+  students,
   classInfo,
   studentSummaries,
   teamSummaries,
@@ -22,13 +26,61 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   const [exportedMsg, setExportedMsg] = useState(false);
 
   const handlePrint = () => {
-    window.print();
+    // In riêng vùng báo cáo, không in toàn bộ ứng dụng. Cách này tránh CSS/layout
+    // của trang chính làm bản xem trước chỉ còn tiêu đề và chân trang trình duyệt.
+    const report = document.getElementById('report-print-content');
+    if (!report) {
+      console.error('Không tìm thấy vùng nội dung báo cáo để in.');
+      window.alert('Không tìm thấy nội dung báo cáo. Vui lòng đóng cửa sổ này và mở lại báo cáo.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=850');
+    if (!printWindow) {
+      window.alert('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép cửa sổ bật lên rồi thử lại.');
+      return;
+    }
+
+    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((node) => node.outerHTML)
+      .join('\\n');
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+      <html lang="vi">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Báo cáo lớp ${String(classInfo.className || '').replace(/[<>&"]/g, '')} - ${String(classInfo.teacherName || '').replace(/[<>&"]/g, '')}</title>
+          ${styles}
+          <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            html, body { background: #fff !important; color: #111827 !important; margin: 0 !important; padding: 0 !important; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            #report-print-content { display: block !important; visibility: visible !important; position: static !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: 0 !important; }
+            #report-print-content * { visibility: visible !important; }
+            .print\\:hidden, button { display: none !important; }
+            table { border-collapse: collapse; max-width: 100%; }
+            tr, img { break-inside: avoid; page-break-inside: avoid; }
+          </style>
+        </head>
+        <body>
+          <div id="report-print-content">${report.innerHTML}</div>
+          <script>
+            window.addEventListener('load', function () {
+              setTimeout(function () { window.focus(); window.print(); }, 400);
+            });
+            window.addEventListener('afterprint', function () { window.close(); });
+          </script>
+        </body>
+      </html>`);
+    printWindow.document.close();
   };
 
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      await exportToPdf(classInfo, studentSummaries, teamSummaries, period);
+      await exportToPdf(classInfo, studentSummaries, teamSummaries, period, classId);
       setExportedMsg(true);
       setTimeout(() => setExportedMsg(false), 3000);
     } catch (e) {
@@ -37,6 +89,16 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       setIsExporting(false);
     }
   };
+
+  const seatingPlan = (() => {
+    try {
+      const raw = localStorage.getItem(`smartclass_seating_plan_v1_${classId}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && Array.isArray(parsed.seats) ? parsed as { rows: number; columns: number; seats: Array<{ desk: number; studentIds: string[] }> } : null;
+    } catch { return null; }
+  })();
+  const seatingStudentMap = new Map(students.map(student => [student.id, student]));
 
   const locationStr = classInfo.location?.trim() || 'Phước Sơn';
 
@@ -107,7 +169,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       </div>
 
       {/* KHUNG A4 VĂN BẢN SƯ PHẠM */}
-      <div id="smartclass-print-report" className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-2xl rounded-xl print:shadow-none print:p-0 print:m-0 text-slate-900 border border-slate-200 print:border-none">
+      <div id="report-print-content" className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-2xl rounded-xl print:shadow-none print:p-0 print:m-0 text-slate-900 border border-slate-200 print:border-none">
         {/* Phần đầu Quốc hiệu Tiêu ngữ & Tên Trường */}
         <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-300">
           <div className="text-center">
@@ -269,7 +331,32 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           </p>
         </div>
 
-        {/* 4. Ký tên phê duyệt */}
+        {/* 4. Sơ đồ chỗ ngồi học sinh */}
+        <section className="mt-8 break-before-page" aria-label="Sơ đồ chỗ ngồi học sinh">
+          <h2 className="text-sm font-bold text-[#1E3A8A] uppercase tracking-wide mb-3">IV. SƠ ĐỒ CHỖ NGỒI HỌC SINH</h2>
+          <div className="border border-slate-300 rounded-lg p-3 bg-white">
+            <div className="mx-auto mb-4 max-w-md rounded-md bg-slate-800 py-2 text-center text-sm font-bold text-white">BẢNG GIÁO VIÊN</div>
+            {seatingPlan?.seats?.length ? (
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(8, seatingPlan.columns || 4))}, minmax(0, 1fr))` }}>
+                {seatingPlan.seats.map((seat) => (
+                  <div key={seat.desk} className="min-h-[66px] rounded-md border border-slate-300 bg-slate-50 p-2 text-center">
+                    <div className="mb-1 text-[10px] font-bold text-slate-500">BÀN {seat.desk}</div>
+                    {(seat.studentIds || []).map((studentId, slot) => {
+                      const student = seatingStudentMap.get(studentId);
+                      return <div key={`${seat.desk}-${slot}`} className="truncate text-[10px] font-medium text-slate-800">{student?.name || (studentId ? 'Học sinh' : 'Trống')}</div>;
+                    })}
+                    {!(seat.studentIds || []).length && <div className="text-[10px] text-slate-400">Trống</div>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-xs text-slate-500">Chưa có sơ đồ chỗ ngồi được lưu trên thiết bị này. Vui lòng vào mục Sơ đồ lớp học và nhấn “Lưu sơ đồ”, sau đó mở lại báo cáo.</p>
+            )}
+          </div>
+          <p className="mt-2 text-[10px] text-slate-500">Lớp: {classInfo.className} · GVCN: {classInfo.teacherName} · Năm học: {classInfo.academicYear}</p>
+        </section>
+
+        {/* 5. Ký tên phê duyệt */}
         <div className="grid grid-cols-3 gap-4 text-center pt-2">
           <div>
             <p className="text-xs font-bold uppercase text-slate-700">
