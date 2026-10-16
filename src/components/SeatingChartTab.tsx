@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Printer, RefreshCw, Save, Users, WandSparkles, ArrowLeftRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas-pro';
 import { Student } from '../types';
 
 type Seat = { desk: number; studentIds: string[] };
@@ -72,13 +74,64 @@ export const SeatingChartTab: React.FC<SeatingChartTabProps> = ({ classId, class
     setPlan({ ...plan, seats }); setSaved(false); setSelectedStudent(null);
     setNotice(`Đã chuyển Tổ ${teamNumber} sang Dãy ${col}. Nhấn “Lưu sơ đồ” để lưu thay đổi.`);
   };
-  const assignStudent = (desk: number, slot: number, studentId: string) => {
-    setPlan(prev => ({ ...prev, seats: prev.seats.map(seat => seat.desk === desk ? { ...seat, studentIds: Array.from({ length: studentsPerDesk }, (_, i) => i === slot ? studentId : (seat.studentIds[i] || '')).filter(Boolean) } : { ...seat, studentIds: seat.studentIds.filter(id => id !== studentId) }) }));
-    setSelectedStudent(null); setSaved(false);
-  };
   const swap = (desk: number, slot: number) => {
-    if (!selectedStudent) { const id = plan.seats.find(s => s.desk === desk)?.studentIds[slot]; if (id) setSelectedStudent(id); return; }
-    assignStudent(desk, slot, selectedStudent);
+    const targetSeat = plan.seats.find(seat => seat.desk === desk);
+    const targetId = targetSeat?.studentIds[slot] || '';
+    if (!selectedStudent) {
+      if (targetId) setSelectedStudent(targetId);
+      return;
+    }
+    if (selectedStudent === targetId) { setSelectedStudent(null); return; }
+
+    // Hoán đổi hai học sinh thay vì ghi đè khiến một em bị mất khỏi sơ đồ.
+    const nextSeats = plan.seats.map(seat => ({ ...seat, studentIds: [...seat.studentIds] }));
+    let sourceDesk = -1;
+    let sourceSlot = -1;
+    nextSeats.forEach((seat, seatIndex) => {
+      const slotIndex = seat.studentIds.findIndex(id => String(id) === String(selectedStudent));
+      if (slotIndex >= 0) { sourceDesk = seatIndex; sourceSlot = slotIndex; }
+    });
+    const targetDeskIndex = nextSeats.findIndex(seat => seat.desk === desk);
+    if (sourceDesk >= 0 && targetDeskIndex >= 0) {
+      while (nextSeats[sourceDesk].studentIds.length <= sourceSlot) nextSeats[sourceDesk].studentIds.push('');
+      while (nextSeats[targetDeskIndex].studentIds.length <= slot) nextSeats[targetDeskIndex].studentIds.push('');
+      nextSeats[sourceDesk].studentIds[sourceSlot] = targetId;
+      nextSeats[targetDeskIndex].studentIds[slot] = selectedStudent;
+      setPlan({ ...plan, seats: nextSeats });
+      setSaved(false);
+      setNotice('Đã đổi vị trí học sinh. Nhấn “Lưu sơ đồ” để lưu thay đổi.');
+    }
+    setSelectedStudent(null);
+  };
+
+  const exportPdf = async () => {
+    const node = document.getElementById('seating-chart-pdf-content');
+    if (!node) { setNotice('Không tạo được vùng xuất PDF. Vui lòng tải lại trang.'); return; }
+    try {
+      setNotice('Đang tạo file PDF sơ đồ chỗ ngồi...');
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      const image = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
+      const ratio = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
+      const width = canvas.width * ratio;
+      const height = canvas.height * ratio;
+      pdf.addImage(image, 'PNG', (pageWidth - width) / 2, margin, width, height);
+      pdf.save(`So_do_cho_ngoi_${String(className).replace(/[^a-z0-9_-]/gi, '_')}.pdf`);
+      setNotice('Đã tải PDF sơ đồ chỗ ngồi theo đúng bố cục hiện tại.');
+    } catch (error) {
+      console.error('Lỗi xuất PDF sơ đồ chỗ ngồi:', error);
+      setNotice('Không xuất được PDF. Hãy thử lại hoặc dùng In / Lưu PDF.');
+    }
   };
   const exportExcel = () => {
     const rows = plan.seats.map(seat => ({ 'Bàn số': seat.desk, 'Vị trí 1': studentMap.get(seat.studentIds[0])?.name || '', 'Mã HS 1': seat.studentIds[0] || '', 'Vị trí 2': studentMap.get(seat.studentIds[1])?.name || '', 'Mã HS 2': seat.studentIds[1] || '' }));
@@ -102,9 +155,10 @@ export const SeatingChartTab: React.FC<SeatingChartTabProps> = ({ classId, class
       <div className="flex items-end"><button onClick={moveTeamToColumn} className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Di chuyển tổ</button></div>
       <p className="text-xs text-indigo-800 md:col-span-3">Di chuyển toàn bộ học sinh của tổ sang dãy đã chọn; các học sinh khác được xếp lại vào những chỗ còn lại. Kiểm tra sơ đồ rồi nhấn “Lưu sơ đồ”.</p>
     </div>
-    <div className="flex flex-wrap items-center gap-2"><button onClick={savePlan} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"><Save size={16}/> Lưu sơ đồ</button><button onClick={exportExcel} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"><Download size={16}/> Xuất Excel</button><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"><Printer size={16}/> In / lưu PDF</button><span className="text-sm text-slate-500">{saved ? 'Đã lưu trên thiết bị này' : 'Có thay đổi chưa lưu'}</span></div>
+    <div className="flex flex-wrap items-center gap-2"><button onClick={savePlan} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"><Save size={16}/> Lưu sơ đồ</button><button onClick={exportExcel} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"><Download size={16}/> Xuất Excel</button><button onClick={exportPdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"><Download size={16}/> Tải sơ đồ PDF</button><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"><Printer size={16}/> In sơ đồ</button><span className="text-sm text-slate-500">{saved ? 'Đã lưu trên thiết bị này' : 'Có thay đổi chưa lưu'}</span></div>
     {notice && <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">{notice}</p>}
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+    <div id="seating-chart-pdf-content" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6" style={{ width: 1100, maxWidth: "100%", boxSizing: "border-box" }}>
+      <div className="mb-5 text-center text-slate-900"><div className="text-lg font-extrabold">{schoolName}</div><div className="text-base font-bold">SƠ ĐỒ CHỖ NGỒI LỚP {className}</div><div className="text-sm">{students.length} học sinh · {plan.seats.length} bàn · {plan.columns} dãy</div></div>
       <div className="mx-auto mb-6 max-w-2xl rounded-xl border-2 border-slate-300 bg-slate-800 px-4 py-3 text-center font-bold tracking-[0.2em] text-white shadow">BẢNG · BÀN GIÁO VIÊN</div>
       {selectedStudent && <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><ArrowLeftRight size={16}/> Đang chọn {studentMap.get(selectedStudent)?.name}. Nhấn vị trí khác để chuyển học sinh.</div>}
       <div className="grid gap-3" style={{gridTemplateColumns:`repeat(${plan.columns}, minmax(0, 1fr))`}}>{plan.seats.map(seat=><div key={seat.desk} className="min-w-0 rounded-xl border border-blue-200 bg-white p-2 shadow-sm"><div className="mb-2 text-center text-xs font-bold uppercase text-slate-400">Bàn {seat.desk}</div>{Array.from({length:studentsPerDesk},(_,slot)=>{const id=seat.studentIds[slot]; const student=id?studentMap.get(id):undefined; return <button key={slot} onClick={()=>swap(seat.desk,slot)} className={`mb-1 min-h-12 w-full break-words rounded-lg border px-1.5 py-2 text-xs font-medium ${student?'border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100':'border-dashed border-slate-300 bg-slate-50 text-slate-400'} ${selectedStudent===id?'ring-2 ring-amber-400':''}`}>{student?.name || `Chỗ trống ${slot+1}`}</button>})}</div>)}</div>
