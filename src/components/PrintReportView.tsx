@@ -107,7 +107,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       </div>
 
       {/* KHUNG A4 VĂN BẢN SƯ PHẠM */}
-      <div className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-2xl rounded-xl print:shadow-none print:p-0 print:m-0 text-slate-900 border border-slate-200 print:border-none">
+      <div id="smartclass-print-report" className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-2xl rounded-xl print:shadow-none print:p-0 print:m-0 text-slate-900 border border-slate-200 print:border-none">
         {/* Phần đầu Quốc hiệu Tiêu ngữ & Tên Trường */}
         <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-300">
           <div className="text-center">
