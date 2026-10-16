@@ -12,7 +12,8 @@ export const exportToPdf = async (
   classInfo: ClassInfo,
   studentSummaries: StudentScoreSummary[],
   teamSummaries: TeamScoreSummary[],
-  period?: EvaluationPeriod
+  period?: EvaluationPeriod,
+  classId?: string
 ): Promise<void> => {
   // Tạo container tạm thời để html2canvas vẽ lại
   const container = document.createElement('div');
