@@ -21,11 +21,12 @@ import {
   Layers,
   School,
   Mail,
+  Armchair,
 } from 'lucide-react';
 import { ClassInfo, CurrentUserSession, AppThemeConfig, ClassItem } from '../types';
 import { getThemePalette } from '../utils/theme';
 
-export type TabType = 'attendance' | 'rules' | 'leaderboard' | 'logs' | 'reports' | 'feedback' | 'settings';
+export type TabType = 'attendance' | 'rules' | 'leaderboard' | 'logs' | 'reports' | 'feedback' | 'settings' | 'seating';
 
 interface NavbarProps {
   currentTab: TabType;
@@ -74,6 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'leaderboard', label: 'Bảng xếp hạng thi đua', icon: <Trophy className="w-4 h-4" /> },
     { id: 'logs', label: 'Nhật ký lớp', icon: <History className="w-4 h-4" /> },
     { id: 'reports', label: 'Xuất báo cáo', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    { id: 'seating', label: 'Sơ đồ lớp học', icon: <Armchair className="w-4 h-4" /> },
     {
       id: 'feedback',
       label: 'Phản hồi & Khiếu nại',
