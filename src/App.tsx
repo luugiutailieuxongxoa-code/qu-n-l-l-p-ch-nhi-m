@@ -744,7 +744,9 @@ export default function App() {
       {/* A4 Print Modal / View */}
       {isPrintModalOpen && (
         <PrintReportView
+          classId={activeClassId}
           classInfo={classInfo}
+          students={students}
           studentSummaries={studentSummaries}
           teamSummaries={teamSummaries}
           period={currentPeriod}
