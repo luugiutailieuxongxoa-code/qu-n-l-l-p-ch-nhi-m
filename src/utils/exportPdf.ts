@@ -12,7 +12,8 @@ export const exportToPdf = async (
   classInfo: ClassInfo,
   studentSummaries: StudentScoreSummary[],
   teamSummaries: TeamScoreSummary[],
-  period?: EvaluationPeriod
+  period?: EvaluationPeriod,
+  classId?: string
 ): Promise<void> => {
   // Tạo container tạm thời để html2canvas vẽ lại
   const container = document.createElement('div');
@@ -52,6 +53,36 @@ export const exportToPdf = async (
     reportTitle = `BẢNG VÀNG DANH DỰ TỔNG KẾT THI ĐUA CẢ NĂM HỌC ${classInfo.academicYear}`;
     reportSubtitle = `(Bảng xếp hạng chung cuộc cả năm học — Lớp ${classInfo.className})`;
     filenameSuffix = `Ca_Nam_Hoc`;
+  }
+
+  // Lấy sơ đồ đã lưu của đúng lớp hiện tại; không dùng sơ đồ của lớp khác.
+  let seatingMarkup = '';
+  try {
+    const rawPlan = classId ? localStorage.getItem(`smartclass_seating_plan_v1_${classId}`) : null;
+    const plan = rawPlan ? JSON.parse(rawPlan) as { columns?: number; seats?: Array<{ desk: number; studentIds: string[] }> } : null;
+    if (plan && Array.isArray(plan.seats) && plan.seats.length) {
+      const studentNameById = new Map(studentSummaries.map(summary => [summary.student.id, summary.student.name]));
+      const cols = Math.max(1, Math.min(8, Number(plan.columns) || 4));
+      const cellMarkup = plan.seats.map(seat => {
+        const names = (seat.studentIds || []).map(id => studentNameById.get(id) || (id ? 'Học sinh' : 'Trống'));
+        return `<td style="width:${100 / cols}%;border:1px solid #cbd5e1;padding:5px;vertical-align:top;text-align:center;background:#f8fafc;">
+          <div style="font-size:9px;font-weight:bold;color:#64748b;margin-bottom:3px;">BÀN ${Number(seat.desk) || ''}</div>
+          ${names.length ? names.map(name => `<div style="font-size:9px;line-height:1.3;overflow-wrap:anywhere;">${String(name).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch] || ch))}</div>`).join('') : '<div style="font-size:9px;color:#94a3b8;">Trống</div>'}
+        </td>`;
+      });
+      const rows = [];
+      for (let i = 0; i < cellMarkup.length; i += cols) rows.push(`<tr>${cellMarkup.slice(i, i + cols).join('')}</tr>`);
+      seatingMarkup = `<div style="margin-top:24px;page-break-before:always;break-before:page;color:#0f172a;">
+        <h2 style="font-size:14px;text-align:center;color:#1e3a8a;margin:0 0 10px;font-weight:800;">SƠ ĐỒ CHỖ NGỒI HỌC SINH</h2>
+        <div style="max-width:420px;margin:0 auto 12px;padding:7px;background:#1e293b;color:white;text-align:center;font-size:11px;font-weight:bold;">BẢNG GIÁO VIÊN</div>
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tbody>${rows.join('')}</tbody></table>
+        <p style="font-size:10px;text-align:center;margin-top:8px;">Lớp ${String(classInfo.className).replace(/[&<>"]/g, '')} · GVCN: ${String(classInfo.teacherName).replace(/[&<>"]/g, '')} · Năm học ${String(classInfo.academicYear).replace(/[&<>"]/g, '')}</p>
+      </div>`;
+    } else {
+      seatingMarkup = `<div style="margin-top:24px;page-break-before:always;break-before:page;"><h2 style="font-size:14px;text-align:center;color:#1e3a8a;">SƠ ĐỒ CHỖ NGỒI HỌC SINH</h2><p style="font-size:11px;text-align:center;color:#64748b;">Chưa có sơ đồ được lưu cho lớp này trên thiết bị hiện tại. Vào mục Sơ đồ lớp học, nhấn “Lưu sơ đồ” rồi xuất PDF lại.</p></div>`;
+    }
+  } catch {
+    seatingMarkup = `<div style="margin-top:24px;page-break-before:always;break-before:page;"><h2 style="font-size:14px;text-align:center;color:#1e3a8a;">SƠ ĐỒ CHỖ NGỒI HỌC SINH</h2><p style="font-size:11px;text-align:center;">Không đọc được sơ đồ đã lưu. Vui lòng mở mục Sơ đồ lớp học và lưu lại.</p></div>`;
   }
 
   // Xây dựng template HTML chuẩn A4 Tiếng Việt
@@ -245,6 +276,8 @@ export const exportToPdf = async (
           ${classInfo.teacherComment}
         </div>
       </div>
+
+      ${seatingMarkup}
 
       <!-- PHẦN CHỮ KÝ PHÊ DUYỆT -->
       <table style="width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: avoid;">
